@@ -2,23 +2,81 @@
 
 This is a detection-as-code repository for NanoSIEM.
 
-## When Creating New Detections
+## CRITICAL: When Creating New Detections
 
-When the user asks to create, build, or write a new detection (e.g., "create a detection for X", "build a rule for Y", "I want to detect Z"), you MUST use the `new_detection_workflow` MCP prompt from the nanodac server.
+When the user asks to create, build, or write a new detection (e.g., "create a detection for X", "build a rule for Y", "I want to detect Z", "let's create a detection for..."), you MUST follow this exact workflow using the nanodac MCP tools:
 
-**DO NOT** just generate the detection content directly. Instead:
+**DO NOT** just generate the detection content directly. Follow ALL steps:
 
-1. Call the `new_detection_workflow` prompt with the threat description
-2. Follow the full workflow which includes:
-   - Syncing the repository
-   - Creating a GitHub issue
-   - Creating a feature branch
-   - Generating and writing the detection file
-   - Validating and testing
-   - STOPPING for user approval
-   - Then creating PR after approval
+### Phase 1: Setup (Do these FIRST, before writing any detection)
 
-This ensures proper tracking, version control, and peer review.
+**Step 1: Sync Repository**
+```
+Call tool: sync_repo
+```
+This pulls latest from main and stashes any uncommitted changes.
+
+**Step 2: Create GitHub Issue**
+```
+Call tool: create_issue
+  - title: "New Detection: <threat description>"
+  - body: "Create detection for: <threat description>\n\nStatus: In Development"
+  - labels: "detection,in-progress"
+```
+**SAVE the issue number from the response.**
+
+**Step 3: Create Feature Branch**
+```
+Call tool: create_branch
+  - branch_name: "detect/<kebab-case-threat-name>"
+```
+
+### Phase 2: Detection Development
+
+**Step 4: Get Schema Reference**
+```
+Call tool: get_schema
+```
+Review the detection file format.
+
+**Step 5: Generate Detection Content**
+Create YAML frontmatter + query following the schema.
+
+**Step 6: Write Detection File**
+```
+Call tool: write_detection_file
+  - filename: "<category>/<detection_name>.yaml"
+  - content: <the complete detection>
+```
+
+**Step 7: Validate and Test**
+```
+Call tool: validate_detection (with the content)
+Call tool: test_detection (with the file path, days=7)
+```
+
+### STOP HERE - Ask User for Approval
+
+Present results and ask: "Ready to create PR? (yes/no)"
+
+### Phase 3: Submit (Only after user says yes)
+
+**Step 8: Commit and Push**
+```
+Call tool: commit_and_push
+  - message: "feat(detection): add <threat description>"
+  - files: ["detections/<path>"]
+```
+
+**Step 9: Create Pull Request**
+```
+Call tool: create_pull_request
+  - title: "feat(detection): <threat description>"
+  - body: "## Summary\n<what it detects>\n\nCloses #<issue_number>"
+  - labels: "detection,awaiting-review"
+```
+
+Report the PR URL to the user. The issue will auto-close when PR merges.
 
 ## Available MCP Tools (nanodac server)
 

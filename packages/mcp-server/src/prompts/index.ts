@@ -291,13 +291,17 @@ function newDetectionWorkflowPrompt(args: Record<string, string | undefined>): s
 
 You are helping create a new detection for: **${threatDescription}**
 
-Follow this workflow step by step. STOP after step 5 and wait for user approval before proceeding.
+Follow this workflow step by step. STOP after step 6 and wait for user approval before proceeding.
 
 ---
 
 ## Phase 1: Setup (Do these steps immediately)
 
-### Step 1: Create GitHub Issue
+### Step 1: Sync Repository
+Use \`sync_repo\` tool to ensure we have the latest detections from main.
+This will stash any uncommitted changes and pull the latest code.
+
+### Step 2: Create GitHub Issue
 Use \`create_issue\` tool with:
 - title: "New Detection: ${threatDescription}"
 - body: "Create detection for: ${threatDescription}\\n\\nStatus: In Development"
@@ -306,7 +310,7 @@ ${assignee ? `- assignee: "${assignee}"` : ''}
 
 **Save the issue number from the response.**
 
-### Step 2: Create Feature Branch
+### Step 3: Create Feature Branch
 Use \`create_branch\` tool with:
 - branch_name: "detect/<slug-from-threat-description>"
   (Convert threat description to kebab-case, e.g., "powershell-encoded-commands")
@@ -315,7 +319,7 @@ Use \`create_branch\` tool with:
 
 ## Phase 2: Detection Development
 
-### Step 3: Generate Detection Content
+### Step 4: Generate Detection Content
 Create a detection file with:
 - YAML frontmatter with all required fields
 - Query using NanoSIEM piped syntax
@@ -324,13 +328,13 @@ Create a detection file with:
 
 Use \`get_schema\` tool first if you need the format reference.
 
-### Step 4: Write Detection File
+### Step 5: Write Detection File
 Use \`write_detection_file\` tool with:
 - filename: "<category>/<detection_name>.yaml"
   (e.g., "malware/encoded_powershell.yaml")
 - content: The complete detection file
 
-### Step 5: Validate and Test
+### Step 6: Validate and Test
 1. Use \`validate_detection\` tool with the detection content
 2. Use \`test_detection\` tool to test against historical data (7 days)
 
@@ -350,12 +354,12 @@ Ask: "Ready to create PR? (yes/no)"
 
 ## Phase 3: Submit for Review (Only after user approval)
 
-### Step 6: Commit and Push
+### Step 7: Commit and Push
 Use \`commit_and_push\` tool with:
 - message: "feat(detection): add ${threatDescription}"
 - files: ["detections/<path-to-file>"]
 
-### Step 7: Create Pull Request
+### Step 8: Create Pull Request
 Use \`create_pull_request\` tool with:
 - title: "feat(detection): ${threatDescription}"
 - body: Include:
@@ -363,7 +367,7 @@ Use \`create_pull_request\` tool with:
   - MITRE ATT&CK mapping
   - Test results summary
   - "Closes #<issue_number>" to link the issue
-- issue_number: The issue number from Step 1
+- issue_number: The issue number from Step 2
 - labels: ["detection", "awaiting-review"]
 
 ---

@@ -308,6 +308,19 @@ export const TOOLS = [
       properties: {},
     },
   },
+  {
+    name: 'sync_repo',
+    description: 'Sync the repository: stash changes, checkout main, pull latest. Run this before starting new detection work.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        base_branch: {
+          type: 'string',
+          description: 'Base branch to sync (default: main)',
+        },
+      },
+    },
+  },
 ];
 
 /** Get NanoSIEM client from environment */
@@ -1051,6 +1064,63 @@ source_type=auth_logs
               {
                 type: 'text',
                 text: `Failed to get branch: ${error instanceof Error ? error.message : String(error)}`,
+              },
+            ],
+            isError: true,
+          };
+        }
+      }
+
+      case 'sync_repo': {
+        const { execSync } = await import('child_process');
+
+        try {
+          const baseBranch = (args.base_branch as string) || 'main';
+          const results: string[] = [];
+
+          // Check for uncommitted changes
+          const status = execSync('git status --porcelain', { encoding: 'utf-8' }).trim();
+          if (status) {
+            // Stash any uncommitted changes
+            execSync('git stash push -m "nanodac: auto-stash before sync"', {
+              encoding: 'utf-8',
+              stdio: 'pipe',
+            });
+            results.push('Stashed uncommitted changes');
+          }
+
+          // Get current branch
+          const currentBranch = execSync('git rev-parse --abbrev-ref HEAD', {
+            encoding: 'utf-8',
+          }).trim();
+
+          // Checkout base branch if not already on it
+          if (currentBranch !== baseBranch) {
+            execSync(`git checkout ${baseBranch}`, { encoding: 'utf-8', stdio: 'pipe' });
+            results.push(`Switched to ${baseBranch}`);
+          }
+
+          // Pull latest
+          execSync(`git pull origin ${baseBranch}`, { encoding: 'utf-8', stdio: 'pipe' });
+          results.push(`Pulled latest from origin/${baseBranch}`);
+
+          // Get latest commit for reference
+          const latestCommit = execSync('git log -1 --oneline', { encoding: 'utf-8' }).trim();
+
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `Repository synced successfully!\n\n${results.join('\n')}\n\nLatest commit: ${latestCommit}`,
+              },
+            ],
+          };
+        } catch (error) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `Failed to sync repo: ${error instanceof Error ? error.message : String(error)}`,
               },
             ],
             isError: true,

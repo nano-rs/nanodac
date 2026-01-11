@@ -2,7 +2,12 @@
   "mcpServers": {
     "nanodac": {
       "command": "node",
-      "args": ["/Users/dan/Documents/nanodac/packages/mcp-server/dist/index.cjs"]
+      "args": [
+        "/Users/dan/Documents/nanodac/packages/mcp-server/dist/index.cjs"
+      ],
+      "autoApprove": [
+        "get_schema"
+      ]
     }
   }
 }

@@ -1,0 +1,36 @@
+---
+title: large_outbound_transfer_low_prevalence_domain
+description: Detects large volumes of data being sent outbound to domains with low prevalence (seen by fewer than 3 hosts). This pattern can indicate data exfiltration to attacker-controlled infrastructure.
+author: security_team
+severity: high
+mode: staging
+detection_mode: scheduled
+schedule: "*/5 * * * *"
+lookback: 15m
+mitre_tactics: TA0010
+mitre_techniques: T1048
+risk_score: auto
+risk_entity: src_ip
+tags:
+  - network
+  - exfiltration
+  - data_theft
+ai_triage_hints:
+  ignore_when:
+    - "Domain is a known cloud storage provider (OneDrive, Google Drive, Dropbox)"
+    - "User is a service account with expected large file transfers"
+    - "Domain belongs to corporate backup or sync service"
+    - "Transfer is to a known software vendor or CDN"
+  suspicious_when:
+    - "Domain was registered in the last 30 days"
+    - "Transfer occurs outside business hours"
+    - "Domain uses suspicious TLD (.top, .xyz, .tk, .cc)"
+    - "Same user transferring to multiple low-prevalence domains"
+    - "Transfer size significantly exceeds user's normal baseline"
+  context: "Large outbound transfers to rare domains are a strong indicator of data exfiltration. Attackers often use newly registered or obscure domains to receive stolen data. Check domain WHOIS, user activity history, and what files may have been accessed."
+---
+source_type=squid_proxy
+  | prevalence enrich=true window=24h
+  | where host_count<3
+  | stats sum(bytes_out) as total_bytes_out, min(timestamp) as first_seen, max(timestamp) as last_seen by url_domain, src_ip, user
+  | where total_bytes_out > 1000000

@@ -86,7 +86,7 @@ export const TOOLS = [
   },
   {
     name: 'validate_detection',
-    description: 'Validate a detection file without deploying',
+    description: 'STEP 6a of new detection workflow: Validate detection syntax and schema before committing.',
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -100,7 +100,7 @@ export const TOOLS = [
   },
   {
     name: 'test_detection',
-    description: 'Test a detection query against historical data',
+    description: 'STEP 6b of new detection workflow: Test the detection query against historical data to verify it works.',
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -158,7 +158,7 @@ export const TOOLS = [
   },
   {
     name: 'get_schema',
-    description: 'Get the detection file schema and example format',
+    description: 'STEP 4 of new detection workflow: Get the detection file schema and example format before writing a detection.',
     inputSchema: {
       type: 'object' as const,
       properties: {},
@@ -166,7 +166,7 @@ export const TOOLS = [
   },
   {
     name: 'create_issue',
-    description: 'Create a GitHub issue for tracking detection improvements, tuning needs, or false positives',
+    description: 'STEP 2 of new detection workflow: Create a GitHub issue to track the new detection. Save the issue number for linking to PR later.',
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -216,7 +216,7 @@ export const TOOLS = [
   // Git workflow tools
   {
     name: 'create_branch',
-    description: 'Create a new git branch for detection development',
+    description: 'STEP 3 of new detection workflow: Create a feature branch for the new detection (e.g., detect/powershell-encoded-commands).',
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -234,7 +234,7 @@ export const TOOLS = [
   },
   {
     name: 'write_detection_file',
-    description: 'Write a detection YAML file to disk',
+    description: 'STEP 5 of new detection workflow: Write the detection YAML file to the detections/ folder.',
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -252,7 +252,7 @@ export const TOOLS = [
   },
   {
     name: 'commit_and_push',
-    description: 'Commit detection files and push to remote',
+    description: 'STEP 7 of new detection workflow (after user approval): Commit the detection file and push to remote.',
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -271,7 +271,7 @@ export const TOOLS = [
   },
   {
     name: 'create_pull_request',
-    description: 'Create a pull request with issue linking',
+    description: 'STEP 8 of new detection workflow (final step): Create a PR linking to the issue. Issue auto-closes on merge.',
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -310,7 +310,7 @@ export const TOOLS = [
   },
   {
     name: 'sync_repo',
-    description: 'Sync the repository: stash changes, checkout main, pull latest. Run this before starting new detection work.',
+    description: 'STEP 1 of new detection workflow: Sync the repository before starting any new detection. Stashes uncommitted changes, checks out main, pulls latest.',
     inputSchema: {
       type: 'object' as const,
       properties: {

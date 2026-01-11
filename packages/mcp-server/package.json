@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "description": "MCP server for NanoSIEM detection-as-code",
   "type": "module",
-  "main": "./dist/index.js",
+  "main": "./dist/index.cjs",
   "bin": {
-    "nanodac-mcp": "./dist/index.js"
+    "nanodac-mcp": "./dist/index.cjs"
   },
   "files": ["dist"],
   "scripts": {
@@ -17,7 +17,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
-    "@nanodac/core": "workspace:*"
+    "@nanodac/core": "file:../core"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

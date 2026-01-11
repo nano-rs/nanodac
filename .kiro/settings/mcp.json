@@ -1,7 +1,8 @@
 {
   "mcpServers": {
     "nanodac": {
-      "command": "nanodac-mcp"
+      "command": "node",
+      "args": ["/Users/dan/Documents/nanodac/packages/mcp-server/dist/index.cjs"]
     }
   }
 }

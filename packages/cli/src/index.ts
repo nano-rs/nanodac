@@ -9,6 +9,7 @@ import {
   syncCommand,
   testCommand,
   diffCommand,
+  pullCommand,
   issueCreateCommand,
   issueListCommand,
 } from './commands/index.js';
@@ -58,6 +59,13 @@ program
   .description('Show differences between local and remote detections')
   .option('-v, --verbose', 'Show detailed changes')
   .action(diffCommand);
+
+program
+  .command('pull')
+  .description('Sync repo by pulling latest detections from main')
+  .option('-b, --branch <branch>', 'Base branch to pull from', 'main')
+  .option('--no-stash', 'Fail instead of stashing uncommitted changes')
+  .action(pullCommand);
 
 // GitHub issue subcommands
 const issueCmd = program

@@ -1,0 +1,33 @@
+---
+title: low_prevalence_domains
+description: Identifies assets accessing low prevalence domains that are seen by fewer than 3 hosts. This can indicate C2 communication, data exfiltration, or access to malicious infrastructure.
+author: dan
+severity: medium
+mode: alerting
+detection_mode: scheduled
+schedule: "*/1 * * * *"
+lookback: 15m
+mitre_tactics: TA0011
+mitre_techniques: T1071
+risk_score: auto
+risk_entity: auto-detect
+tags:
+  - network
+  - c2
+  - exfiltration
+ai_triage_hints:
+  ignore_when:
+    - "Domain is on corporate allow list"
+    - "Source IP is known security scanner (10.1.1.50)"
+    - "Domain belongs to known software vendor update service"
+    - "User is service account with expected external connectivity"
+  suspicious_when:
+    - "Activity occurs outside business hours (before 7am or after 7pm)"
+    - "Domain was registered in last 30 days (check WHOIS)"
+    - "Multiple users accessing the same rare domain within short time window"
+    - "Domain uses suspicious TLD (.top, .xyz, .tk)"
+  context: "Low prevalence domains are often C2 but can be false positives for niche software updates, regional CDNs, or employee personal devices. Check domain registration date and category."
+---
+source_type=squid_proxy
+  | prevalence enrich=true window=24h
+  | where host_count<3

@@ -1,0 +1,40 @@
+---
+title: suspicious_powershell_encoded_commands
+description: Detects PowerShell execution with base64 encoded commands, commonly used by attackers to obfuscate malicious scripts.
+author: dan
+severity: high
+mode: staging
+detection_mode: scheduled
+schedule: "*/5 * * * *"
+lookback: 15m
+mitre_tactics:
+  - TA0002
+  - TA0005
+mitre_techniques:
+  - T1059.001
+  - T1027
+risk_score: 75
+risk_entity: auto-detect
+tags:
+  - endpoint
+  - powershell
+  - execution
+  - defense_evasion
+ai_triage_hints:
+  ignore_when:
+    - "Process is spawned by known IT management tool (SCCM, Intune)"
+    - "User is member of IT Admins group performing authorized task"
+    - "Command decodes to known legitimate script (check decoded content)"
+    - "Host is in development/lab environment subnet"
+  suspicious_when:
+    - "Command contains download cradle patterns (IEX, Invoke-Expression)"
+    - "Process parent is unexpected (explorer.exe, outlook.exe, winword.exe)"
+    - "Execution occurs on server that shouldn't run PowerShell interactively"
+    - "User has no history of PowerShell usage"
+  context: "Base64 encoded PowerShell is very common in attacks but also used by some legitimate admin tools. Always decode the command to understand what it does. Check for download cradles, reverse shells, or credential access."
+---
+source_type=windows_security
+  | where event_type="process_create"
+  | where process_name="powershell.exe" OR process_name="pwsh.exe"
+  | where command_line~"-e[ncodedcommand]*" OR command_line~"-enc "
+  | stats count() by user_name, host_name, command_line

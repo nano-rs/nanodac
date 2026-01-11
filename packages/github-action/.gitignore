@@ -1,0 +1,2 @@
+# Override parent - we need to commit dist for GitHub Actions
+!dist/

@@ -1,0 +1,50 @@
+# Detection Full Sync Workflow
+# Full sync including deletion of orphaned rules
+#
+# Copy this file to .github/workflows/detection-full-sync.yml in your detections repo
+#
+# WARNING: delete-orphans will remove any detections from NanoSIEM
+# that are not present in your local files. Use with caution.
+
+name: Detection Full Sync
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'detections/**'
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  sync:
+    name: Full Sync Detections
+    runs-on: ubuntu-latest
+    environment: production  # Require approval for destructive operations
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate detections
+        uses: your-org/nanodac-action@v1
+        with:
+          nanosiem-url: ${{ secrets.NANOSIEM_URL }}
+          api-key: ${{ secrets.NANOSIEM_API_KEY }}
+          action: validate
+          strict: true
+
+      - name: Deploy with full sync
+        uses: your-org/nanodac-action@v1
+        with:
+          nanosiem-url: ${{ secrets.NANOSIEM_URL }}
+          api-key: ${{ secrets.NANOSIEM_API_KEY }}
+          search-url: ${{ secrets.NANOSIEM_SEARCH_URL }}
+          action: deploy
+          delete-orphans: true
+
+      - name: Summary
+        run: |
+          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Created: ${{ steps.deploy.outputs.created-count || 0 }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Updated: ${{ steps.deploy.outputs.updated-count || 0 }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Deleted: ${{ steps.deploy.outputs.deleted-count || 0 }}" >> $GITHUB_STEP_SUMMARY

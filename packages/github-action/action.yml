@@ -1,0 +1,48 @@
+name: 'NanoDac Detection Sync'
+description: 'Validate and deploy NanoSIEM detection rules'
+branding:
+  icon: 'shield'
+  color: 'blue'
+
+inputs:
+  nanosiem-url:
+    description: 'NanoSIEM API URL'
+    required: true
+  api-key:
+    description: 'NanoSIEM API key'
+    required: true
+  search-url:
+    description: 'NanoSIEM Search service URL (optional)'
+    required: false
+  detections-dir:
+    description: 'Directory containing detection files'
+    default: 'detections'
+  action:
+    description: 'Action to perform: validate, deploy, or both'
+    default: 'both'
+  strict:
+    description: 'Treat warnings as errors'
+    default: 'false'
+  dry-run:
+    description: 'Show changes without deploying'
+    default: 'false'
+  delete-orphans:
+    description: 'Delete remote detections not in local files'
+    default: 'false'
+  github-token:
+    description: 'GitHub token for PR comments (defaults to github.token)'
+    required: false
+
+outputs:
+  validation-result:
+    description: 'Validation result (valid/invalid)'
+  created-count:
+    description: 'Number of detections created'
+  updated-count:
+    description: 'Number of detections updated'
+  deleted-count:
+    description: 'Number of detections deleted'
+
+runs:
+  using: 'node20'
+  main: 'dist/index.js'

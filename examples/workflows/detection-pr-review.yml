@@ -1,0 +1,40 @@
+# Detection PR Review Workflow
+# Validates detections and posts detailed results as PR comment
+#
+# Copy this file to .github/workflows/detection-pr-review.yml in your detections repo
+
+name: Detection PR Review
+
+on:
+  pull_request:
+    paths:
+      - 'detections/**'
+
+jobs:
+  review:
+    name: Review Detections
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate and review detections
+        uses: your-org/nanodac-action@v1
+        with:
+          nanosiem-url: ${{ secrets.NANOSIEM_URL }}
+          api-key: ${{ secrets.NANOSIEM_API_KEY }}
+          action: validate
+          strict: true  # Treat warnings as errors
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Dry-run deployment
+        if: success()
+        uses: your-org/nanodac-action@v1
+        with:
+          nanosiem-url: ${{ secrets.NANOSIEM_URL }}
+          api-key: ${{ secrets.NANOSIEM_API_KEY }}
+          action: deploy
+          dry-run: true

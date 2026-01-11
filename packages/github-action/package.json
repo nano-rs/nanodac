@@ -1,0 +1,29 @@
+{
+  "name": "@nanodac/github-action",
+  "version": "0.1.0",
+  "description": "GitHub Action for NanoSIEM detection-as-code",
+  "type": "module",
+  "main": "./dist/index.js",
+  "files": ["dist", "action.yml"],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@actions/core": "^1.10.0",
+    "@actions/github": "^6.0.0",
+    "@nanodac/core": "file:../core",
+    "fast-glob": "^3.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsup": "^8.3.0",
+    "typescript": "^5.7.0",
+    "vitest": "^2.1.0"
+  },
+  "keywords": ["nanosiem", "detection", "security", "siem", "github-action"],
+  "license": "MIT"
+}

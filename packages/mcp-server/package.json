@@ -1,0 +1,30 @@
+{
+  "name": "@nanodac/mcp-server",
+  "version": "0.1.0",
+  "description": "MCP server for NanoSIEM detection-as-code",
+  "type": "module",
+  "main": "./dist/index.js",
+  "bin": {
+    "nanodac-mcp": "./dist/index.js"
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@nanodac/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsup": "^8.3.0",
+    "typescript": "^5.7.0",
+    "vitest": "^2.1.0"
+  },
+  "keywords": ["nanosiem", "detection", "security", "siem", "mcp", "ai"],
+  "license": "MIT"
+}

@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "nanodac": {
+      "command": "nanodac-mcp"
+    }
+  }
+}

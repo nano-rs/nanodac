@@ -1,0 +1,39 @@
+---
+title: ssh_brute_force_attempts
+description: Detects potential SSH brute force attacks by identifying multiple failed authentication attempts from a single source IP.
+author: dan
+severity: medium
+mode: live
+detection_mode: scheduled
+schedule: "*/5 * * * *"
+lookback: 15m
+mitre_tactics: TA0006
+mitre_techniques: T1110.001
+risk_score: auto
+risk_entity: src_ip
+risk_modifiers:
+  - condition: "count > 50"
+    score: 80
+  - condition: "count > 100"
+    score: 95
+tags:
+  - network
+  - brute_force
+  - credential_access
+ai_triage_hints:
+  ignore_when:
+    - "Source IP is known vulnerability scanner (Nessus, Qualys)"
+    - "Source IP belongs to authorized penetration testing team"
+    - "Target is honeypot system designed to attract attackers"
+    - "Failures are from known service account with expired credentials"
+  suspicious_when:
+    - "Source IP is from known malicious ASN or hosting provider"
+    - "Attacks target multiple hosts in sequence (lateral scanning)"
+    - "Failed attempts suddenly stop followed by successful login"
+    - "Source IP has no prior legitimate activity in environment"
+  context: "SSH brute force attacks are common from internet-facing systems. Check if the source IP is external and if any accounts were compromised. Rate of failed attempts and geographic origin are good indicators."
+---
+source_type=auth_logs
+  | where service="ssh" AND action="failed"
+  | stats count() as failed_attempts by src_ip, dst_ip
+  | where failed_attempts > 10

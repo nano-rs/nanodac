@@ -1,0 +1,51 @@
+# Detection Sync Workflow
+# Validates detections on PR, deploys on merge to main
+#
+# Setup:
+# 1. Copy this file to .github/workflows/detection-sync.yml
+# 2. Copy the nanodac/packages/github-action directory to your repo
+# 3. Add NANOSIEM_URL and NANOSIEM_API_KEY secrets
+
+name: Detection Sync
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'detections/**'
+  pull_request:
+    paths:
+      - 'detections/**'
+
+jobs:
+  validate:
+    name: Validate Detections
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate detections
+        uses: ./.github/actions/nanodac  # Local action path
+        with:
+          nanosiem-url: ${{ secrets.NANOSIEM_URL }}
+          api-key: ${{ secrets.NANOSIEM_API_KEY }}
+          action: validate
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+  deploy:
+    name: Deploy Detections
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy detections
+        uses: ./.github/actions/nanodac
+        with:
+          nanosiem-url: ${{ secrets.NANOSIEM_URL }}
+          api-key: ${{ secrets.NANOSIEM_API_KEY }}
+          action: deploy

@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "nanodac": {
+      "command": "nanodac-mcp",
+      "env": {
+        "NANOSIEM_API_URL": "http://localhost:3000",
+        "NANOSIEM_API_KEY": "${NANOSIEM_API_KEY}",
+        "NANOSIEM_SEARCH_URL": "http://localhost:3002"
+      }
+    }
+  }
+}

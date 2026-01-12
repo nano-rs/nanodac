@@ -1,0 +1,33 @@
+---
+title: low_prevalence_squid_proxy
+description: Detects connections to domains with low prevalence from Squid proxy logs, which may indicate C2, exfiltration, or malicious infrastructure
+author: security_team
+severity: medium
+mode: staging
+detection_mode: scheduled
+schedule: "*/1 * * * *"
+lookback: 5m
+mitre_tactics: TA0011
+mitre_techniques: T1071
+risk_score: auto
+risk_entity: auto-detect
+tags:
+  - network
+  - proxy
+  - c2
+  - exfiltration
+ai_triage_hints:
+  ignore_when:
+    - "Domain is a known CDN or cloud provider"
+    - "Domain is recently onboarded internal service"
+    - "User is from security team doing research"
+  suspicious_when:
+    - "Domain was registered recently (< 30 days)"
+    - "Multiple users connecting to same low-prevalence domain"
+    - "Connection occurs outside business hours"
+    - "Large data transfer to the domain"
+  context: "Low prevalence domains are rarely visited across the organization. While some may be legitimate niche sites, attackers often use unique domains for C2 or exfiltration to avoid detection."
+---
+source_type=squid_proxy
+  | prevalence enrich=true window=24h
+  | where host_count < 3

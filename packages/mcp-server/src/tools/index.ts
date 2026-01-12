@@ -166,22 +166,22 @@ export const TOOLS = [
   },
   {
     name: 'create_issue',
-    description: 'STEP 2 of new detection workflow: Create a GitHub issue to track the new detection. Save the issue number for linking to PR later.',
+    description: 'STEP 2 of new detection workflow: Create a GitHub issue to track the new detection. Save the issue number for linking to PR later. Use only ["detection"] as the label.',
     inputSchema: {
       type: 'object' as const,
       properties: {
         title: {
           type: 'string',
-          description: 'Issue title (e.g., "Tune brute_force_ssh - false positives from scanners")',
+          description: 'Issue title (e.g., "New Detection: brute force SSH attacks")',
         },
         body: {
           type: 'string',
-          description: 'Issue description with details about the problem',
+          description: 'Issue description with details',
         },
         labels: {
           type: 'array',
           items: { type: 'string' },
-          description: 'Labels for categorization (e.g., ["detection", "tuning", "false-positive"])',
+          description: 'Labels - use ["detection"] only',
         },
         assignee: {
           type: 'string',

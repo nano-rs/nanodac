@@ -1,34 +1,33 @@
-# NanoDaC - Detection-as-Code Instructions
+# NanoDaC Detection Workflow
 
-This is a detection-as-code repository for NanoSIEM.
+This steering file defines the required workflow for creating new detections.
 
-## CRITICAL: When Creating New Detections
+## MANDATORY: New Detection Workflow
 
-When the user asks to create, build, or write a new detection (e.g., "create a detection for X", "build a rule for Y", "I want to detect Z", "let's create a detection for..."), you MUST follow this exact workflow using the nanodac MCP tools:
+When the user asks to create, build, or write a new detection, you MUST follow these steps IN ORDER using the nanodac MCP tools. Do NOT skip steps.
 
-**DO NOT** just generate the detection content directly. Follow ALL steps:
+### Phase 1: Setup (REQUIRED - Do these FIRST)
 
-### Phase 1: Setup (Do these FIRST, before writing any detection)
-
-**Step 1: Sync Repository**
+**Step 1: Sync Repository** ← START HERE, DO NOT SKIP
 ```
 Call tool: sync_repo
 ```
-This pulls latest from main and stashes any uncommitted changes.
+This ensures you have the latest detections before creating a new one.
 
 **Step 2: Create GitHub Issue**
 ```
 Call tool: create_issue
-  - title: "New Detection: <threat description>"
-  - body: "Create detection for: <threat description>\n\nStatus: In Development"
-  - labels: "detection,in-progress"
+  - title: "New Detection: <brief description>"
+  - body: "<description of what to detect>"
+  - labels: ["detection"]
 ```
-**SAVE the issue number from the response.**
+IMPORTANT: Only use the "detection" label. Do not add other labels.
+SAVE the issue number from the response for Step 9.
 
 **Step 3: Create Feature Branch**
 ```
 Call tool: create_branch
-  - branch_name: "detect/<kebab-case-threat-name>"
+  - branch_name: "detect/<kebab-case-name>"
 ```
 
 ### Phase 2: Detection Development
@@ -71,10 +70,11 @@ Call tool: commit_and_push
 **Step 9: Create Pull Request**
 ```
 Call tool: create_pull_request
-  - title: "feat(detection): <threat description>"
+  - title: "feat(detection): <brief description>"
   - body: "## Summary\n<what it detects>\n\nCloses #<issue_number>"
-  - labels: "detection,awaiting-review"
+  - labels: ["detection"]
 ```
+IMPORTANT: Only use the "detection" label for PRs.
 
 Report the PR URL to the user. The issue will auto-close when PR merges.
 

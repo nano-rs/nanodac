@@ -321,6 +321,114 @@ export const TOOLS = [
       },
     },
   },
+  // Rule Repository tools
+  {
+    name: 'list_repositories',
+    description: 'List all configured external rule repositories (e.g., SigmaHQ)',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {},
+    },
+  },
+  {
+    name: 'sync_repository',
+    description: 'Sync rules from a GitHub repository. Fetches the latest rules and converts Sigma rules to nPL.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        name: {
+          type: 'string',
+          description: 'Repository name or slug (e.g., "sigma" or "sigma-hq/sigma")',
+        },
+      },
+      required: ['name'],
+    },
+  },
+  {
+    name: 'browse_repository',
+    description: 'Browse rules in an external repository. Filter by path, severity, or coverage status.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        name: {
+          type: 'string',
+          description: 'Repository name or slug',
+        },
+        path: {
+          type: 'string',
+          description: 'Folder path to browse (e.g., "windows/process_creation")',
+        },
+        severity: {
+          type: 'string',
+          enum: ['critical', 'high', 'medium', 'low', 'informational'],
+          description: 'Filter by severity',
+        },
+        coverage: {
+          type: 'string',
+          enum: ['full', 'partial', 'none'],
+          description: 'Filter by coverage status',
+        },
+        limit: {
+          type: 'number',
+          description: 'Maximum rules to return (default: 50)',
+        },
+      },
+      required: ['name'],
+    },
+  },
+  {
+    name: 'import_rule',
+    description: 'Import a rule from an external repository into NanoSIEM. Can be linked (auto-update) or forked (independent copy).',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        repository: {
+          type: 'string',
+          description: 'Repository name or slug',
+        },
+        path: {
+          type: 'string',
+          description: 'Rule file path in the repository',
+        },
+        linked: {
+          type: 'boolean',
+          description: 'If true (default), rule stays linked to upstream for updates. If false, creates a forked copy.',
+        },
+        folder: {
+          type: 'string',
+          description: 'Local folder for the detection (optional)',
+        },
+      },
+      required: ['repository', 'path'],
+    },
+  },
+  {
+    name: 'convert_sigma',
+    description: 'Convert a Sigma rule to nPL query using AI. Useful for testing conversions before importing.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        sigma_yaml: {
+          type: 'string',
+          description: 'Sigma rule YAML content',
+        },
+      },
+      required: ['sigma_yaml'],
+    },
+  },
+  {
+    name: 'get_coverage',
+    description: 'Get detection coverage analysis. Shows which rules can run based on available log sources.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        repository: {
+          type: 'string',
+          description: 'Filter by repository name (optional)',
+        },
+      },
+    },
+  },
 ];
 
 /** Get NanoSIEM client from environment */
@@ -700,8 +808,6 @@ A detection file uses YAML frontmatter followed by a query.
 - lookback: Time window (e.g., "15m", "1h", "24h")
 - mitre_tactics: MITRE ATT&CK tactic ID (e.g., "TA0011")
 - mitre_techniques: MITRE ATT&CK technique ID (e.g., "T1071")
-- risk_score: Number 0-100 or "auto"
-- risk_entity: Field name for risk scoring or "auto-detect"
 - tags: Array of category tags
 - reference_url: URL with more information
 - ai_triage_hints: Object with ignore_when, suspicious_when, context
@@ -721,6 +827,7 @@ source_type=<log_source>
 - head/tail: Limit results
 - prevalence: Enrich with prevalence data
 - lookup: Join with lookup tables
+- risk: Add risk scoring (e.g., | risk score=50 entity=src_ip factor="description")
 
 ## Example Detection
 \`\`\`yaml
@@ -735,8 +842,6 @@ schedule: "*/5 * * * *"
 lookback: 15m
 mitre_tactics: TA0006
 mitre_techniques: T1110
-risk_score: auto
-risk_entity: src_ip
 tags:
   - authentication
   - brute_force
@@ -750,9 +855,13 @@ ai_triage_hints:
   context: "Failed logins can be normal but excessive attempts from one source often indicate brute force."
 ---
 source_type=auth_logs
-  | where action="login_failed"
-  | stats count() as failed_attempts by src_ip, user
-  | where failed_attempts > 10
+| where action="login_failed"
+| stats count() as failed_attempts by src_ip, user
+| where failed_attempts > 10
+| risk score=50 entity=src_ip factor="Failed login attempts"
+| where failed_attempts > 50
+| risk score=80 factor="High volume brute force"
+| table src_ip, user, failed_attempts, risk_score, risk_factors
 \`\`\``;
 
         return {
@@ -1126,6 +1235,291 @@ source_type=auth_logs
             isError: true,
           };
         }
+      }
+
+      // Rule Repository tools
+      case 'list_repositories': {
+        const apiUrl = process.env.NANOSIEM_API_URL;
+        const apiKey = process.env.NANOSIEM_API_KEY;
+
+        const response = await fetch(`${apiUrl}/api/rule-repositories`, {
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (!response.ok) {
+          return {
+            content: [{ type: 'text', text: `Failed to fetch repositories: ${response.statusText}` }],
+            isError: true,
+          };
+        }
+
+        const data = await response.json() as { repositories: unknown[] };
+        return {
+          content: [{ type: 'text', text: JSON.stringify(data.repositories, null, 2) }],
+        };
+      }
+
+      case 'sync_repository': {
+        const apiUrl = process.env.NANOSIEM_API_URL;
+        const apiKey = process.env.NANOSIEM_API_KEY;
+        const repoName = args.name as string;
+
+        // First find the repository
+        const listResponse = await fetch(`${apiUrl}/api/rule-repositories`, {
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (!listResponse.ok) {
+          return {
+            content: [{ type: 'text', text: `Failed to fetch repositories: ${listResponse.statusText}` }],
+            isError: true,
+          };
+        }
+
+        const data = await listResponse.json() as { repositories: Array<{ id: string; name: string; slug: string }> };
+        const repo = data.repositories.find(r => r.name === repoName || r.slug === repoName);
+
+        if (!repo) {
+          return {
+            content: [{ type: 'text', text: `Repository not found: ${repoName}` }],
+            isError: true,
+          };
+        }
+
+        // Sync the repository
+        const syncResponse = await fetch(`${apiUrl}/api/rule-repositories/${repo.id}/sync`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (!syncResponse.ok) {
+          const error = await syncResponse.text();
+          return {
+            content: [{ type: 'text', text: `Sync failed: ${error}` }],
+            isError: true,
+          };
+        }
+
+        const result = await syncResponse.json();
+        return {
+          content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+        };
+      }
+
+      case 'browse_repository': {
+        const apiUrl = process.env.NANOSIEM_API_URL;
+        const apiKey = process.env.NANOSIEM_API_KEY;
+        const repoName = args.name as string;
+
+        // Find the repository
+        const listResponse = await fetch(`${apiUrl}/api/rule-repositories`, {
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (!listResponse.ok) {
+          return {
+            content: [{ type: 'text', text: `Failed to fetch repositories: ${listResponse.statusText}` }],
+            isError: true,
+          };
+        }
+
+        const data = await listResponse.json() as { repositories: Array<{ id: string; name: string; slug: string }> };
+        const repo = data.repositories.find(r => r.name === repoName || r.slug === repoName);
+
+        if (!repo) {
+          return {
+            content: [{ type: 'text', text: `Repository not found: ${repoName}` }],
+            isError: true,
+          };
+        }
+
+        // Build query params
+        const params = new URLSearchParams();
+        if (args.path) params.set('path_prefix', args.path as string);
+        if (args.severity) params.set('severity', args.severity as string);
+        if (args.coverage) params.set('coverage_status', args.coverage as string);
+        params.set('limit', String((args.limit as number) || 50));
+
+        const query = params.toString();
+        const rulesResponse = await fetch(
+          `${apiUrl}/api/rule-repositories/${repo.id}/rules${query ? `?${query}` : ''}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${apiKey}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+
+        if (!rulesResponse.ok) {
+          const error = await rulesResponse.text();
+          return {
+            content: [{ type: 'text', text: `Failed to fetch rules: ${error}` }],
+            isError: true,
+          };
+        }
+
+        const rules = await rulesResponse.json();
+        return {
+          content: [{ type: 'text', text: JSON.stringify(rules, null, 2) }],
+        };
+      }
+
+      case 'import_rule': {
+        const apiUrl = process.env.NANOSIEM_API_URL;
+        const apiKey = process.env.NANOSIEM_API_KEY;
+        const repoName = args.repository as string;
+        const rulePath = args.path as string;
+
+        // Find the repository
+        const listResponse = await fetch(`${apiUrl}/api/rule-repositories`, {
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (!listResponse.ok) {
+          return {
+            content: [{ type: 'text', text: `Failed to fetch repositories: ${listResponse.statusText}` }],
+            isError: true,
+          };
+        }
+
+        const data = await listResponse.json() as { repositories: Array<{ id: string; name: string; slug: string }> };
+        const repo = data.repositories.find(r => r.name === repoName || r.slug === repoName);
+
+        if (!repo) {
+          return {
+            content: [{ type: 'text', text: `Repository not found: ${repoName}` }],
+            isError: true,
+          };
+        }
+
+        // Get preview first
+        const previewResponse = await fetch(
+          `${apiUrl}/api/rule-repositories/${repo.id}/rules/preview/${encodeURIComponent(rulePath)}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${apiKey}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+
+        if (!previewResponse.ok) {
+          const error = await previewResponse.text();
+          return {
+            content: [{ type: 'text', text: `Failed to preview rule: ${error}` }],
+            isError: true,
+          };
+        }
+
+        const preview = await previewResponse.json() as Record<string, unknown>;
+
+        // Perform import
+        const importType = args.linked !== false ? 'linked' : 'forked';
+        const importResponse = await fetch(
+          `${apiUrl}/api/rule-repositories/${repo.id}/rules/import/${encodeURIComponent(rulePath)}`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${apiKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              import_type: importType,
+              folder: args.folder,
+            }),
+          }
+        );
+
+        if (!importResponse.ok) {
+          const error = await importResponse.text();
+          return {
+            content: [{ type: 'text', text: `Import failed: ${error}` }],
+            isError: true,
+          };
+        }
+
+        const result = await importResponse.json() as Record<string, unknown>;
+        return {
+          content: [{
+            type: 'text',
+            text: `Rule imported successfully!\n\nDetection ID: ${result.detection_rule_id}\nImport type: ${result.import_type}\n\nPreview:\n${JSON.stringify(preview, null, 2)}`,
+          }],
+        };
+      }
+
+      case 'convert_sigma': {
+        const apiUrl = process.env.NANOSIEM_API_URL;
+        const apiKey = process.env.NANOSIEM_API_KEY;
+
+        const response = await fetch(`${apiUrl}/api/sigma/convert`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ sigma_yaml: args.sigma_yaml }),
+        });
+
+        if (!response.ok) {
+          const error = await response.text();
+          return {
+            content: [{ type: 'text', text: `Conversion failed: ${error}` }],
+            isError: true,
+          };
+        }
+
+        const result = await response.json();
+        return {
+          content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+        };
+      }
+
+      case 'get_coverage': {
+        const apiUrl = process.env.NANOSIEM_API_URL;
+        const apiKey = process.env.NANOSIEM_API_KEY;
+
+        const params = new URLSearchParams();
+        if (args.repository) params.set('repository_id', args.repository as string);
+
+        const query = params.toString();
+        const response = await fetch(
+          `${apiUrl}/api/rule-repositories/coverage${query ? `?${query}` : ''}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${apiKey}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+
+        if (!response.ok) {
+          const error = await response.text();
+          return {
+            content: [{ type: 'text', text: `Failed to get coverage: ${error}` }],
+            isError: true,
+          };
+        }
+
+        const result = await response.json();
+        return {
+          content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+        };
       }
 
       default:

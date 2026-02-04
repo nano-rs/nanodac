@@ -46,6 +46,8 @@ const VALID_SEVERITIES = [
 ] as const;
 const VALID_MODES = ['staging', 'live', 'alerting'] as const;
 const VALID_DETECTION_MODES = ['real-time', 'scheduled'] as const;
+const VALID_CASE_VISIBILITIES = ['public', 'group', 'private'] as const;
+const VALID_AUTO_TUNING_MODES = ['off', 'proposals', 'auto_approve'] as const;
 
 // Regex patterns for validation
 // Cron field pattern: *, number, */n, range (n-m), list (n,m), or combinations
@@ -86,14 +88,17 @@ export function validateDetection(detection: Detection): ValidationResult {
   // MITRE ATT&CK validation
   validateMitre(metadata, warnings);
 
-  // Risk score validation
-  validateRiskScore(metadata, errors);
-
-  // Risk modifiers validation
-  validateRiskModifiers(metadata, errors);
-
   // AI triage hints validation
   validateAiTriageHints(metadata, warnings);
+
+  // Case visibility validation
+  validateCaseVisibility(metadata, errors);
+
+  // Auto-tuning validation
+  validateAutoTuning(metadata, errors);
+
+  // Requires validation
+  validateRequires(metadata, warnings);
 
   // Query validation (basic)
   validateQuery(query, errors, warnings);
@@ -272,74 +277,6 @@ function validateMitre(
   }
 }
 
-function validateRiskScore(
-  metadata: DetectionFrontmatter,
-  errors: ValidationError[]
-): void {
-  if (metadata.risk_score !== undefined && metadata.risk_score !== 'auto') {
-    if (typeof metadata.risk_score !== 'number') {
-      errors.push({
-        field: 'risk_score',
-        message: `Invalid risk_score type. Expected number (0-100) or "auto"`,
-        code: 'INVALID_TYPE',
-      });
-    } else if (metadata.risk_score < 0 || metadata.risk_score > 100) {
-      errors.push({
-        field: 'risk_score',
-        message: `Risk score must be between 0 and 100. Got: ${metadata.risk_score}`,
-        code: 'OUT_OF_RANGE',
-      });
-    }
-  }
-}
-
-function validateRiskModifiers(
-  metadata: DetectionFrontmatter,
-  errors: ValidationError[]
-): void {
-  if (!metadata.risk_modifiers) return;
-
-  const validOperators = ['>', '<', '>=', '<=', '=', '!=', 'contains'];
-
-  for (let i = 0; i < metadata.risk_modifiers.length; i++) {
-    const modifier = metadata.risk_modifiers[i];
-
-    if (!modifier.condition || modifier.condition.trim() === '') {
-      errors.push({
-        field: `risk_modifiers[${i}].condition`,
-        message: 'Risk modifier condition is required',
-        code: 'REQUIRED_FIELD',
-      });
-    } else {
-      // Check for operator
-      const hasOperator = validOperators.some((op) =>
-        modifier.condition.includes(op)
-      );
-      if (!hasOperator) {
-        errors.push({
-          field: `risk_modifiers[${i}].condition`,
-          message: `Risk modifier condition must contain an operator (${validOperators.join(', ')})`,
-          code: 'INVALID_CONDITION',
-        });
-      }
-    }
-
-    if (typeof modifier.score !== 'number') {
-      errors.push({
-        field: `risk_modifiers[${i}].score`,
-        message: 'Risk modifier score must be a number',
-        code: 'INVALID_TYPE',
-      });
-    } else if (modifier.score < 0 || modifier.score > 100) {
-      errors.push({
-        field: `risk_modifiers[${i}].score`,
-        message: `Risk modifier score must be between 0 and 100. Got: ${modifier.score}`,
-        code: 'OUT_OF_RANGE',
-      });
-    }
-  }
-}
-
 function validateAiTriageHints(
   metadata: DetectionFrontmatter,
   warnings: ValidationWarning[]
@@ -374,6 +311,148 @@ function validateAiTriageHints(
         code: 'HINT_TOO_LONG',
       });
       break; // Only warn once
+    }
+  }
+}
+
+function validateCaseVisibility(
+  metadata: DetectionFrontmatter,
+  errors: ValidationError[]
+): void {
+  if (metadata.case_visibility) {
+    if (
+      !VALID_CASE_VISIBILITIES.includes(
+        metadata.case_visibility as (typeof VALID_CASE_VISIBILITIES)[number]
+      )
+    ) {
+      errors.push({
+        field: 'case_visibility',
+        message: `Invalid case_visibility: "${metadata.case_visibility}". Must be one of: ${VALID_CASE_VISIBILITIES.join(', ')}`,
+        code: 'INVALID_ENUM',
+      });
+    }
+
+    // case_groups is required when visibility is 'group'
+    if (metadata.case_visibility === 'group') {
+      if (!metadata.case_groups || metadata.case_groups.length === 0) {
+        errors.push({
+          field: 'case_groups',
+          message: 'case_groups is required when case_visibility is "group"',
+          code: 'REQUIRED_FIELD',
+        });
+      }
+    }
+  }
+
+  // Validate case_groups format (alphanumeric and hyphens only)
+  if (metadata.case_groups) {
+    const SLUG_REGEX = /^[a-z0-9-]+$/;
+    for (const group of metadata.case_groups) {
+      if (!SLUG_REGEX.test(group)) {
+        errors.push({
+          field: 'case_groups',
+          message: `Invalid group slug: "${group}". Must be lowercase alphanumeric with hyphens`,
+          code: 'INVALID_FORMAT',
+        });
+      }
+    }
+  }
+}
+
+function validateAutoTuning(
+  metadata: DetectionFrontmatter,
+  errors: ValidationError[]
+): void {
+  const autoTuning = metadata.auto_tuning;
+  if (!autoTuning) return;
+
+  // Validate mode enum
+  if (
+    autoTuning.mode &&
+    !VALID_AUTO_TUNING_MODES.includes(
+      autoTuning.mode as (typeof VALID_AUTO_TUNING_MODES)[number]
+    )
+  ) {
+    errors.push({
+      field: 'auto_tuning.mode',
+      message: `Invalid auto_tuning mode: "${autoTuning.mode}". Must be one of: ${VALID_AUTO_TUNING_MODES.join(', ')}`,
+      code: 'INVALID_ENUM',
+    });
+  }
+
+  // Validate min_confidence range
+  if (autoTuning.min_confidence !== undefined) {
+    if (
+      typeof autoTuning.min_confidence !== 'number' ||
+      autoTuning.min_confidence < 0 ||
+      autoTuning.min_confidence > 1
+    ) {
+      errors.push({
+        field: 'auto_tuning.min_confidence',
+        message: `min_confidence must be a number between 0.0 and 1.0. Got: ${autoTuning.min_confidence}`,
+        code: 'OUT_OF_RANGE',
+      });
+    }
+  }
+
+  // Validate boolean fields
+  if (autoTuning.enabled !== undefined && typeof autoTuning.enabled !== 'boolean') {
+    errors.push({
+      field: 'auto_tuning.enabled',
+      message: 'auto_tuning.enabled must be a boolean',
+      code: 'INVALID_TYPE',
+    });
+  }
+
+  if (autoTuning.critical !== undefined && typeof autoTuning.critical !== 'boolean') {
+    errors.push({
+      field: 'auto_tuning.critical',
+      message: 'auto_tuning.critical must be a boolean',
+      code: 'INVALID_TYPE',
+    });
+  }
+}
+
+function validateRequires(
+  metadata: DetectionFrontmatter,
+  warnings: ValidationWarning[]
+): void {
+  const requires = metadata.requires;
+  if (!requires) return;
+
+  // Check that fields array exists and is not empty
+  if (!requires.fields || requires.fields.length === 0) {
+    warnings.push({
+      field: 'requires.fields',
+      message: 'requires.fields is empty. Consider specifying required UDM fields',
+      code: 'EMPTY_ARRAY',
+    });
+  }
+
+  // Validate field names are valid UDM fields (basic check - lowercase with underscores)
+  const FIELD_REGEX = /^[a-z][a-z0-9_]*$/;
+  if (requires.fields) {
+    for (const field of requires.fields) {
+      if (!FIELD_REGEX.test(field)) {
+        warnings.push({
+          field: 'requires.fields',
+          message: `Potentially invalid UDM field name: "${field}". Expected lowercase with underscores`,
+          code: 'INVALID_FORMAT',
+        });
+      }
+    }
+  }
+
+  // Validate source_types if provided
+  if (requires.source_types) {
+    for (const sourceType of requires.source_types) {
+      if (!FIELD_REGEX.test(sourceType.toLowerCase())) {
+        warnings.push({
+          field: 'requires.source_types',
+          message: `Potentially invalid source_type: "${sourceType}"`,
+          code: 'INVALID_FORMAT',
+        });
+      }
     }
   }
 }

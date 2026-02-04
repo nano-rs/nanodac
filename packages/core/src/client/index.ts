@@ -266,18 +266,6 @@ export function detectionToApiPayload(detection: Detection): DetectionApiPayload
     lookbackMinutes = parseLookbackToMinutes(metadata.lookback);
   }
 
-  // Handle risk_score 'auto'
-  let riskScore: number | undefined;
-  if (metadata.risk_score === 'auto') {
-    riskScore = undefined; // Let API determine from severity
-  } else if (typeof metadata.risk_score === 'number') {
-    riskScore = metadata.risk_score;
-  }
-
-  // Handle risk_entity 'auto-detect'
-  const riskEntityField =
-    metadata.risk_entity === 'auto-detect' ? undefined : metadata.risk_entity;
-
   // Normalize arrays
   const mitreTactics = Array.isArray(metadata.mitre_tactics)
     ? metadata.mitre_tactics
@@ -302,9 +290,6 @@ export function detectionToApiPayload(detection: Detection): DetectionApiPayload
     lookback_minutes: lookbackMinutes,
     mitre_tactics: mitreTactics,
     mitre_techniques: mitreTechniques,
-    risk_score: riskScore,
-    risk_entity_field: riskEntityField,
-    risk_modifiers: metadata.risk_modifiers,
     tags: metadata.tags ?? [],
     reference_url: metadata.reference_url,
     author: metadata.author,
@@ -344,9 +329,6 @@ export function detectionRuleToDetection(
     lookback,
     mitre_tactics: rule.mitre_tactics,
     mitre_techniques: rule.mitre_techniques,
-    risk_score: rule.risk_score,
-    risk_entity: rule.risk_entity_field,
-    risk_modifiers: rule.risk_modifiers,
     tags: rule.tags,
     reference_url: rule.reference_url,
     realtime_enabled: rule.realtime_enabled,

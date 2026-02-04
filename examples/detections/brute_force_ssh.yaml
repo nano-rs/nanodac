@@ -9,13 +9,6 @@ schedule: "*/5 * * * *"
 lookback: 15m
 mitre_tactics: TA0006
 mitre_techniques: T1110.001
-risk_score: auto
-risk_entity: src_ip
-risk_modifiers:
-  - condition: "count > 50"
-    score: 80
-  - condition: "count > 100"
-    score: 95
 tags:
   - network
   - brute_force
@@ -34,6 +27,12 @@ ai_triage_hints:
   context: "SSH brute force attacks are common from internet-facing systems. Check if the source IP is external and if any accounts were compromised. Rate of failed attempts and geographic origin are good indicators."
 ---
 source_type=auth_logs
-  | where service="ssh" AND action="failed"
-  | stats count() as failed_attempts by src_ip, dst_ip
-  | where failed_attempts > 10
+| where service="ssh" AND action="failed"
+| stats count() as failed_attempts by src_ip, dst_ip
+| where failed_attempts > 10
+| risk score=50 entity=src_ip factor="SSH brute force"
+| where failed_attempts > 50
+| risk score=80 factor="High volume brute force"
+| where failed_attempts > 100
+| risk score=95 factor="Severe brute force attack"
+| table src_ip, dst_ip, failed_attempts, risk_score, risk_factors

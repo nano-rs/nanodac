@@ -5,3 +5,10 @@ export { testCommand } from './test.js';
 export { diffCommand } from './diff.js';
 export { pullCommand } from './pull.js';
 export { issueCreateCommand, issueListCommand } from './case.js';
+export {
+  repoListCommand,
+  repoAddCommand,
+  repoSyncCommand,
+  repoBrowseCommand,
+  repoImportCommand,
+} from './repo.js';

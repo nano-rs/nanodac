@@ -13,17 +13,6 @@ export type RuleMode = 'staging' | 'live' | 'alerting';
 export type DetectionMode = 'real-time' | 'scheduled';
 
 /**
- * Risk modifier for conditional score adjustments
- * Applies when a specific condition is matched in the alert
- */
-export interface RiskModifier {
-  /** Condition expression (e.g., "count > 10", "status = failure") */
-  condition: string;
-  /** Score to use when condition matches (0-100) */
-  score: number;
-}
-
-/**
  * AI triage hints help analysts identify false positives vs true positives
  * These hints are used by the AI triage system and displayed to analysts
  */
@@ -34,6 +23,53 @@ export interface AiTriageHints {
   suspicious_when: string[];
   /** Additional context about this detection for the AI and analysts */
   context?: string;
+}
+
+/** Case visibility levels for cases created by this rule */
+export type CaseVisibility = 'public' | 'group' | 'private';
+
+/** Auto-tuning mode for detection rules */
+export type AutoTuningMode = 'off' | 'proposals' | 'auto_approve';
+
+/**
+ * Auto-tuning configuration for detection rules
+ * Controls how AI-driven tuning behaves for this rule
+ */
+export interface AutoTuningConfig {
+  /** Whether auto-tuning is enabled for this rule (default: true) */
+  enabled?: boolean;
+  /** Minimum AI confidence score required to consider a tuning proposal (0.0-1.0, default: 0.8) */
+  min_confidence?: number;
+  /** If true, prevents auto-tuning regardless of other settings (for critical rules) */
+  critical?: boolean;
+  /** How tuning proposals are handled: 'off', 'proposals' (require approval), or 'auto_approve' */
+  mode?: AutoTuningMode;
+}
+
+/**
+ * UDM field requirements for a detection rule
+ * Used for coverage analysis and validation
+ */
+export interface RequiresConfig {
+  /** UDM fields required for this detection to work */
+  fields: string[];
+  /** Suggested source types that typically provide these fields */
+  source_types?: string[];
+}
+
+/**
+ * Repository metadata for imported rules
+ * Set automatically during import, not user-authored
+ */
+export interface RepositoryMetadata {
+  /** Repository slug (e.g., "sigma-hq/sigma") */
+  source: string;
+  /** Rule path within the repository */
+  rule_id: string;
+  /** Commit SHA when imported/last synced */
+  commit: string;
+  /** Whether this rule stays in sync with upstream changes */
+  linked: boolean;
 }
 
 /**
@@ -61,12 +97,6 @@ export interface DetectionFrontmatter {
   mitre_tactics?: string | string[];
   /** MITRE ATT&CK techniques (single or array, e.g., "T1071" or ["T1071", "T1059.001"]) */
   mitre_techniques?: string | string[];
-  /** Risk score (0-100 or "auto" for severity-based calculation) */
-  risk_score?: number | 'auto';
-  /** Risk entity field (e.g., "src_ip", "user_name" or "auto-detect") */
-  risk_entity?: string;
-  /** Conditional risk score modifiers */
-  risk_modifiers?: RiskModifier[];
   /** Tags for categorization */
   tags?: string[];
   /** Reference URL for more information about the threat */
@@ -77,6 +107,16 @@ export interface DetectionFrontmatter {
   ai_triage_hints?: AiTriageHints;
   /** Whether this detection should be enabled on deploy (default: true) */
   enabled?: boolean;
+  /** Case visibility for cases created by this rule */
+  case_visibility?: CaseVisibility;
+  /** Group slugs for case permissions (when visibility = 'group') */
+  case_groups?: string[];
+  /** Auto-tuning configuration */
+  auto_tuning?: AutoTuningConfig;
+  /** UDM field requirements */
+  requires?: RequiresConfig;
+  /** Repository metadata (set by import, not user-authored) */
+  _repository?: RepositoryMetadata;
 }
 
 /**
@@ -119,12 +159,6 @@ export interface DetectionApiPayload {
   mitre_tactics: string[];
   /** MITRE ATT&CK techniques (normalized to array) */
   mitre_techniques: string[];
-  /** Risk score (0-100, undefined for auto) */
-  risk_score?: number;
-  /** Risk entity field */
-  risk_entity_field?: string;
-  /** Conditional risk modifiers */
-  risk_modifiers?: RiskModifier[];
   /** Tags */
   tags: string[];
   /** Reference URL */
@@ -137,6 +171,20 @@ export interface DetectionApiPayload {
   ai_triage_hints?: AiTriageHints;
   /** Whether detection is enabled */
   enabled?: boolean;
+  /** Case visibility for cases created by this rule */
+  case_visibility?: CaseVisibility;
+  /** Group slugs for case permissions */
+  case_groups?: string[];
+  /** Auto-tuning configuration */
+  auto_tuning?: AutoTuningConfig;
+  /** UDM field requirements */
+  requires?: RequiresConfig;
+  /** Repository source (for linked/forked rules) */
+  source_repository_slug?: string;
+  /** Rule path in source repository */
+  source_rule_path?: string;
+  /** Whether the rule is linked to upstream */
+  source_linked?: boolean;
 }
 
 /**

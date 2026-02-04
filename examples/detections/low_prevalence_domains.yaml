@@ -9,8 +9,6 @@ schedule: "*/1 * * * *"
 lookback: 15m
 mitre_tactics: TA0011
 mitre_techniques: T1071
-risk_score: auto
-risk_entity: auto-detect
 tags:
   - network
   - c2
@@ -29,5 +27,9 @@ ai_triage_hints:
   context: "Low prevalence domains are often C2 but can be false positives for niche software updates, regional CDNs, or employee personal devices. Check domain registration date and category."
 ---
 source_type=squid_proxy
-  | prevalence enrich=true window=24h
-  | where host_count<3
+| prevalence enrich=true window=24h
+| where host_count < 3
+| risk score=50 entity=src_ip factor="Low prevalence domain"
+| where domain_first_seen > now() - INTERVAL 7 DAY
+| risk score=75 factor="Recently first seen"
+| table timestamp, src_ip, dest_domain, host_count, domain_first_seen, risk_score, risk_factors

@@ -12,6 +12,11 @@ import {
   pullCommand,
   issueCreateCommand,
   issueListCommand,
+  repoListCommand,
+  repoAddCommand,
+  repoSyncCommand,
+  repoBrowseCommand,
+  repoImportCommand,
 } from './commands/index.js';
 
 const program = new Command();
@@ -89,5 +94,66 @@ issueCmd
   .option('-a, --assignee <user>', 'Filter by assignee')
   .option('--limit <count>', 'Maximum issues to show', '20')
   .action(issueListCommand);
+
+// Rule repository subcommands
+const repoCmd = program
+  .command('repo')
+  .description('Manage external rule repositories (e.g., SigmaHQ)');
+
+repoCmd
+  .command('list')
+  .description('List configured rule repositories')
+  .action(repoListCommand);
+
+repoCmd
+  .command('add')
+  .description('Add a new rule repository')
+  .requiredOption('-n, --name <name>', 'Repository name')
+  .requiredOption('-u, --url <url>', 'GitHub repository URL')
+  .option('-d, --description <desc>', 'Repository description')
+  .option('-b, --branch <branch>', 'Branch to sync (default: main)')
+  .option('-p, --rules-path <path>', 'Path to rules folder (default: rules/)')
+  .option('--auto-sync', 'Enable automatic syncing')
+  .action(repoAddCommand);
+
+repoCmd
+  .command('sync')
+  .description('Sync rules from a repository')
+  .argument('<name>', 'Repository name or slug')
+  .action((name: string) => repoSyncCommand({ name }));
+
+repoCmd
+  .command('browse')
+  .description('Browse rules in a repository')
+  .argument('<name>', 'Repository name or slug')
+  .option('-p, --path <path>', 'Filter by folder path')
+  .option('-s, --severity <severity>', 'Filter by severity')
+  .option('-c, --coverage <coverage>', 'Filter by coverage (full, partial, none)')
+  .option('-l, --limit <count>', 'Maximum rules to show', '50')
+  .action((name: string, options: { path?: string; severity?: string; coverage?: string; limit?: string }) =>
+    repoBrowseCommand({
+      name,
+      path: options.path,
+      severity: options.severity,
+      coverage: options.coverage,
+      limit: options.limit ? parseInt(options.limit, 10) : undefined,
+    })
+  );
+
+repoCmd
+  .command('import')
+  .description('Import a rule from a repository')
+  .requiredOption('-r, --repository <name>', 'Repository name or slug')
+  .requiredOption('-p, --path <path>', 'Rule file path')
+  .option('--forked', 'Import as forked (independent copy) instead of linked')
+  .option('-f, --folder <folder>', 'Local folder for the detection')
+  .action((options: { repository: string; path: string; forked?: boolean; folder?: string }) =>
+    repoImportCommand({
+      repository: options.repository,
+      path: options.path,
+      linked: !options.forked,
+      folder: options.folder,
+    })
+  );
 
 program.parse();

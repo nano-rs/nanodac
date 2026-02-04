@@ -169,9 +169,10 @@ function generateDetectionPrompt(args: Record<string, string | undefined>): stri
 ${args.threat_description || 'No description provided'}
 
 ## Requirements
-- Use YAML frontmatter format with these fields: title, description, author, severity, mode, detection_mode, schedule, lookback, mitre_tactics, mitre_techniques, risk_score, risk_entity, tags, ai_triage_hints
+- Use YAML frontmatter format with these fields: title, description, author, severity, mode, detection_mode, schedule, lookback, mitre_tactics, mitre_techniques, tags, ai_triage_hints
 - Use NanoSIEM's piped query syntax: source_type=X | command1 | command2
-- Available commands: stats, where, timechart, table, sort, head, tail, prevalence, lookup
+- Available commands: stats, where, timechart, table, sort, head, tail, prevalence, lookup, risk
+- Use | risk score=X entity=field factor="description" in the query for dynamic risk scoring
 - Severity: ${args.severity || 'medium'}
 - Detection mode: scheduled (for complex queries) or real-time (for simple filters)
 - Include ai_triage_hints with ignore_when (benign patterns) and suspicious_when (true positive indicators)
@@ -219,8 +220,6 @@ schedule: "*/5 * * * *"
 lookback: 15m
 mitre_tactics: TAxxxx
 mitre_techniques: Txxxx
-risk_score: auto
-risk_entity: auto-detect
 tags:
   - category
 ai_triage_hints:
@@ -233,8 +232,12 @@ ai_triage_hints:
   context: "Additional context for analysts"
 ---
 source_type=log_source
-  | command1
-  | command2
+| command1
+| command2
+| risk score=50 entity=src_ip factor="Base detection"
+| where additional_condition
+| risk score=80 factor="Elevated risk condition"
+| table field1, field2, risk_score, risk_factors
 \`\`\`
 
 Generate the detection:`;

@@ -806,6 +806,7 @@ A detection file uses YAML frontmatter followed by a query.
 - detection_mode: scheduled | real-time (default: scheduled)
 - schedule: Cron expression (e.g., "*/5 * * * *")
 - lookback: Time window (e.g., "15m", "1h", "24h")
+- alert_mode: grouped | per_event (default: grouped) — per_event creates one alert per matched event (for vendor pass-through)
 - mitre_tactics: MITRE ATT&CK tactic ID (e.g., "TA0011")
 - mitre_techniques: MITRE ATT&CK technique ID (e.g., "T1071")
 - tags: Array of category tags
@@ -840,6 +841,7 @@ mode: staging
 detection_mode: scheduled
 schedule: "*/5 * * * *"
 lookback: 15m
+alert_mode: grouped
 mitre_tactics: TA0006
 mitre_techniques: T1110
 tags:

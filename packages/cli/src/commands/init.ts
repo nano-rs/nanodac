@@ -23,6 +23,7 @@ mode: staging
 detection_mode: scheduled
 schedule: "*/5 * * * *"
 lookback: 15m
+alert_mode: grouped
 mitre_tactics: TA0001
 mitre_techniques: T1078
 risk_score: auto

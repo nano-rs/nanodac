@@ -296,6 +296,7 @@ export function detectionToApiPayload(detection: Detection): DetectionApiPayload
     realtime_enabled: metadata.realtime_enabled,
     ai_triage_hints: metadata.ai_triage_hints,
     enabled: metadata.enabled,
+    alert_mode: metadata.alert_mode,
   };
 }
 
@@ -334,6 +335,7 @@ export function detectionRuleToDetection(
     realtime_enabled: rule.realtime_enabled,
     ai_triage_hints: rule.ai_triage_hints,
     enabled: rule.enabled,
+    alert_mode: rule.alert_mode,
   };
 
   return {

@@ -169,7 +169,7 @@ function generateDetectionPrompt(args: Record<string, string | undefined>): stri
 ${args.threat_description || 'No description provided'}
 
 ## Requirements
-- Use YAML frontmatter format with these fields: title, description, author, severity, mode, detection_mode, schedule, lookback, mitre_tactics, mitre_techniques, tags, ai_triage_hints
+- Use YAML frontmatter format with these fields: title, description, author, severity, mode, detection_mode, schedule, lookback, alert_mode, mitre_tactics, mitre_techniques, tags, ai_triage_hints
 - Use NanoSIEM's piped query syntax: source_type=X | command1 | command2
 - Available commands: stats, where, timechart, table, sort, head, tail, prevalence, lookup, risk
 - Use | risk score=X entity=field factor="description" in the query for dynamic risk scoring
@@ -218,6 +218,7 @@ mode: staging
 detection_mode: scheduled
 schedule: "*/5 * * * *"
 lookback: 15m
+alert_mode: grouped
 mitre_tactics: TAxxxx
 mitre_techniques: Txxxx
 tags:

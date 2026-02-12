@@ -12,6 +12,9 @@ export type RuleMode = 'staging' | 'live' | 'alerting';
 /** Detection execution mode */
 export type DetectionMode = 'real-time' | 'scheduled';
 
+/** Alert mode for how matched events map to alerts */
+export type AlertMode = 'grouped' | 'per_event';
+
 /**
  * AI triage hints help analysts identify false positives vs true positives
  * These hints are used by the AI triage system and displayed to analysts
@@ -111,6 +114,8 @@ export interface DetectionFrontmatter {
   case_visibility?: CaseVisibility;
   /** Group slugs for case permissions (when visibility = 'group') */
   case_groups?: string[];
+  /** Alert mode: grouped (all matches → 1 alert) or per_event (each match → 1 alert) */
+  alert_mode?: AlertMode;
   /** Auto-tuning configuration */
   auto_tuning?: AutoTuningConfig;
   /** UDM field requirements */
@@ -175,6 +180,8 @@ export interface DetectionApiPayload {
   case_visibility?: CaseVisibility;
   /** Group slugs for case permissions */
   case_groups?: string[];
+  /** Alert mode: grouped (all matches → 1 alert) or per_event (each match → 1 alert) */
+  alert_mode?: AlertMode;
   /** Auto-tuning configuration */
   auto_tuning?: AutoTuningConfig;
   /** UDM field requirements */

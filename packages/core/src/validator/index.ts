@@ -47,6 +47,7 @@ const VALID_SEVERITIES = [
 const VALID_MODES = ['staging', 'live', 'alerting'] as const;
 const VALID_DETECTION_MODES = ['real-time', 'scheduled'] as const;
 const VALID_CASE_VISIBILITIES = ['public', 'group', 'private'] as const;
+const VALID_ALERT_MODES = ['grouped', 'per_event'] as const;
 const VALID_AUTO_TUNING_MODES = ['off', 'proposals', 'auto_approve'] as const;
 
 // Regex patterns for validation
@@ -77,7 +78,7 @@ export function validateDetection(detection: Detection): ValidationResult {
   validateRequired(metadata, errors);
 
   // Enum values
-  validateEnums(metadata, errors);
+  validateEnums(metadata, errors, warnings);
 
   // Schedule validation
   validateSchedule(metadata, errors, warnings);
@@ -149,7 +150,8 @@ function validateRequired(
 
 function validateEnums(
   metadata: DetectionFrontmatter,
-  errors: ValidationError[]
+  errors: ValidationError[],
+  warnings: ValidationWarning[]
 ): void {
   if (
     metadata.severity &&
@@ -183,6 +185,31 @@ function validateEnums(
       field: 'detection_mode',
       message: `Invalid detection_mode: "${metadata.detection_mode}". Must be one of: ${VALID_DETECTION_MODES.join(', ')}`,
       code: 'INVALID_ENUM',
+    });
+  }
+
+  if (
+    metadata.alert_mode &&
+    !VALID_ALERT_MODES.includes(
+      metadata.alert_mode as (typeof VALID_ALERT_MODES)[number]
+    )
+  ) {
+    errors.push({
+      field: 'alert_mode',
+      message: `Invalid alert_mode: "${metadata.alert_mode}". Must be one of: ${VALID_ALERT_MODES.join(', ')}`,
+      code: 'INVALID_ENUM',
+    });
+  }
+
+  if (
+    metadata.alert_mode === 'per_event' &&
+    metadata.detection_mode === 'real-time'
+  ) {
+    warnings.push({
+      field: 'alert_mode',
+      message:
+        'per_event alert_mode with real-time detection_mode is redundant — real-time rules already process events individually',
+      code: 'REDUNDANT_CONFIG',
     });
   }
 }

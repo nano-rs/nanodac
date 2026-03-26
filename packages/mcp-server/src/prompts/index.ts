@@ -207,6 +207,25 @@ ALWAYS include in stats aggregations:
 - Source context: values(src_host), values(process_name), etc.
 - The specific artifacts that triggered the alert
 
+## CRITICAL: Threshold Selection — Favor Lower, Catch More
+
+Always choose the LOWEST threshold that stays operationally quiet. Start low — SOC can tune up. A threshold set too high misses real attacks.
+
+Recommended thresholds (not conservative defaults):
+- Command-line length: \`> 50\` not \`> 100\` or \`> 200\` — LOLBin abuse easily exceeds 50 chars
+- Entropy: \`> 4.0\` not \`> 5.0\` — Base64/obfuscation hits 4.0-4.5
+- Failed logins: \`> 5\` not \`> 50\` — targeted attacks try 5-20 passwords
+- Distinct ports (scan): \`> 20\` not \`> 100\` — targeted scans are low-and-slow
+- Bytes out (exfil): \`> 10MB\` not \`> 100MB\` — staged exfil happens in chunks
+- Distinct dest IPs (lateral): \`> 3\` not \`> 10\` — most users touch 1-3 hosts
+- TGS requests (kerberoast): \`> 10\` not \`> 100\` — targeted roasting hits 10-20 SPNs
+
+Process hunting — use FULL LOLBin list, not just cmd+powershell:
+\`process_name IN ("cmd.exe", "powershell.exe", "pwsh.exe", "wscript.exe", "cscript.exe", "mshta.exe", "rundll32.exe", "regsvr32.exe", "certutil.exe", "bitsadmin.exe", "msbuild.exe", "installutil.exe", "wmic.exe")\`
+
+Use \`command_line\` (full command line) for length/entropy checks, not \`process_name\` (just the exe name).
+Always include \`parent_command_line\` in output — parent-child context is critical.
+
 ## Format
 \`\`\`yaml
 ---

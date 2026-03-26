@@ -7,7 +7,7 @@
 export type Severity = 'critical' | 'high' | 'medium' | 'low' | 'informational';
 
 /** Rule lifecycle mode */
-export type RuleMode = 'staging' | 'live' | 'alerting';
+export type RuleMode = 'staging' | 'live' | 'alerting' | 'paused';
 
 /** Detection execution mode */
 export type DetectionMode = 'real-time' | 'scheduled';
@@ -108,8 +108,6 @@ export interface DetectionFrontmatter {
   realtime_enabled?: boolean;
   /** AI triage hints for false positive identification */
   ai_triage_hints?: AiTriageHints;
-  /** Whether this detection should be enabled on deploy (default: true) */
-  enabled?: boolean;
   /** Case visibility for cases created by this rule */
   case_visibility?: CaseVisibility;
   /** Group slugs for case permissions (when visibility = 'group') */
@@ -174,8 +172,6 @@ export interface DetectionApiPayload {
   realtime_enabled?: boolean;
   /** AI triage hints */
   ai_triage_hints?: AiTriageHints;
-  /** Whether detection is enabled */
-  enabled?: boolean;
   /** Case visibility for cases created by this rule */
   case_visibility?: CaseVisibility;
   /** Group slugs for case permissions */
@@ -201,8 +197,6 @@ export interface DetectionApiPayload {
 export interface DetectionRule extends DetectionApiPayload {
   /** Unique rule ID (UUID) */
   id: string;
-  /** Whether the rule is currently enabled */
-  enabled: boolean;
   /** Materialized view name (for real-time detections) */
   materialized_view_name?: string;
   /** AI-generated narrative explaining the detection */

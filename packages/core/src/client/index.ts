@@ -175,17 +175,17 @@ export class NanosiemClient {
   }
 
   /**
-   * Enable a detection rule
+   * Pause a detection rule (set mode to paused)
    */
-  async enableDetection(id: string): Promise<ApiResponse<DetectionRule>> {
-    return this.request<DetectionRule>('POST', `/api/detections/${id}/enable`);
+  async pauseDetection(id: string): Promise<ApiResponse<DetectionRule>> {
+    return this.request<DetectionRule>('POST', `/api/rules/${id}/pause`);
   }
 
   /**
-   * Disable a detection rule
+   * Resume a paused detection rule (set mode back to alerting)
    */
-  async disableDetection(id: string): Promise<ApiResponse<DetectionRule>> {
-    return this.request<DetectionRule>('POST', `/api/detections/${id}/disable`);
+  async resumeDetection(id: string): Promise<ApiResponse<DetectionRule>> {
+    return this.request<DetectionRule>('POST', `/api/rules/${id}/resume`);
   }
 
   /**
@@ -295,7 +295,6 @@ export function detectionToApiPayload(detection: Detection): DetectionApiPayload
     author: metadata.author,
     realtime_enabled: metadata.realtime_enabled,
     ai_triage_hints: metadata.ai_triage_hints,
-    enabled: metadata.enabled,
     alert_mode: metadata.alert_mode,
   };
 }
@@ -334,7 +333,6 @@ export function detectionRuleToDetection(
     reference_url: rule.reference_url,
     realtime_enabled: rule.realtime_enabled,
     ai_triage_hints: rule.ai_triage_hints,
-    enabled: rule.enabled,
     alert_mode: rule.alert_mode,
   };
 

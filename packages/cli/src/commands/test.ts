@@ -124,7 +124,7 @@ function formatEvent(event: Record<string, unknown>, index: number, compact: boo
       'Source': ['src_ip', 'src_host', 'src_port', 'src_user', 'src_mac', 'user', 'user_name'],
       'Destination': ['dest_ip', 'dest_host', 'dest_port', 'dest_user', 'dest_mac', 'url', 'url_domain', 'uri_path'],
       'Action': ['action', 'status', 'status_code', 'result', 'http_method', 'protocol'],
-      'Process': ['process_name', 'process_path', 'process_id', 'command_line', 'parent_process'],
+      'Process': ['process_name', 'process_path', 'process_id', 'command_line', 'parent_command_line'],
       'File': ['file_path', 'file_name', 'file_size', 'file_action'],
       'Network': ['bytes_in', 'bytes_out', 'packets_in', 'packets_out', 'direction'],
       'Other': [] // catch-all

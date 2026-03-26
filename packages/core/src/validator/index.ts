@@ -44,7 +44,7 @@ const VALID_SEVERITIES = [
   'low',
   'informational',
 ] as const;
-const VALID_MODES = ['staging', 'live', 'alerting'] as const;
+const VALID_MODES = ['staging', 'live', 'alerting', 'paused'] as const;
 const VALID_DETECTION_MODES = ['real-time', 'scheduled'] as const;
 const VALID_CASE_VISIBILITIES = ['public', 'group', 'private'] as const;
 const VALID_ALERT_MODES = ['grouped', 'per_event'] as const;

@@ -36,6 +36,6 @@ source_type=windows_security
 | where process_name="powershell.exe" OR process_name="pwsh.exe"
 | where command_line~"-e[ncodedcommand]*" OR command_line~"-enc "
 | risk score=75 entity=host_name factor="Encoded PowerShell command"
-| where parent_process IN ("winword.exe", "excel.exe", "outlook.exe")
+| where parent_command_line IN ("winword.exe", "excel.exe", "outlook.exe")
 | risk score=95 factor="Office parent process"
 | stats count() by user_name, host_name, command_line, risk_score, risk_factors

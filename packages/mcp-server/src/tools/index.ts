@@ -23,13 +23,9 @@ export const TOOLS = [
           enum: ['critical', 'high', 'medium', 'low', 'informational'],
           description: 'Filter by severity',
         },
-        enabled: {
-          type: 'boolean',
-          description: 'Filter by enabled status',
-        },
         mode: {
           type: 'string',
-          enum: ['staging', 'live', 'alerting'],
+          enum: ['staging', 'live', 'alerting', 'paused'],
           description: 'Filter by rule mode',
         },
       },
@@ -548,9 +544,7 @@ export async function handleToolCall(
         if (args.severity) {
           detections = detections.filter((d) => d.severity === args.severity);
         }
-        if (args.enabled !== undefined) {
-          detections = detections.filter((d) => d.enabled === args.enabled);
-        }
+
         if (args.mode) {
           detections = detections.filter((d) => d.mode === args.mode);
         }
@@ -561,7 +555,6 @@ export async function handleToolCall(
           name: d.name,
           severity: d.severity,
           mode: d.mode,
-          enabled: d.enabled,
           match_count: d.match_count,
         }));
 

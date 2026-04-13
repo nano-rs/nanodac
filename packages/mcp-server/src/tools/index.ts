@@ -1348,7 +1348,7 @@ source_type=auth_logs
 
         const response = await fetch(`${apiUrl}/api/rule-repositories`, {
           headers: {
-            'Authorization': `Bearer ${apiKey}`,
+            'X-API-Key': apiKey!,
             'Content-Type': 'application/json',
           },
         });
@@ -1374,7 +1374,7 @@ source_type=auth_logs
         // First find the repository
         const listResponse = await fetch(`${apiUrl}/api/rule-repositories`, {
           headers: {
-            'Authorization': `Bearer ${apiKey}`,
+            'X-API-Key': apiKey!,
             'Content-Type': 'application/json',
           },
         });
@@ -1400,7 +1400,7 @@ source_type=auth_logs
         const syncResponse = await fetch(`${apiUrl}/api/rule-repositories/${repo.id}/sync`, {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${apiKey}`,
+            'X-API-Key': apiKey!,
             'Content-Type': 'application/json',
           },
         });
@@ -1427,7 +1427,7 @@ source_type=auth_logs
         // Find the repository
         const listResponse = await fetch(`${apiUrl}/api/rule-repositories`, {
           headers: {
-            'Authorization': `Bearer ${apiKey}`,
+            'X-API-Key': apiKey!,
             'Content-Type': 'application/json',
           },
         });
@@ -1461,7 +1461,7 @@ source_type=auth_logs
           `${apiUrl}/api/rule-repositories/${repo.id}/rules${query ? `?${query}` : ''}`,
           {
             headers: {
-              'Authorization': `Bearer ${apiKey}`,
+              'X-API-Key': apiKey!,
               'Content-Type': 'application/json',
             },
           }
@@ -1490,7 +1490,7 @@ source_type=auth_logs
         // Find the repository
         const listResponse = await fetch(`${apiUrl}/api/rule-repositories`, {
           headers: {
-            'Authorization': `Bearer ${apiKey}`,
+            'X-API-Key': apiKey!,
             'Content-Type': 'application/json',
           },
         });
@@ -1517,7 +1517,7 @@ source_type=auth_logs
           `${apiUrl}/api/rule-repositories/${repo.id}/rules/preview/${encodeURIComponent(rulePath)}`,
           {
             headers: {
-              'Authorization': `Bearer ${apiKey}`,
+              'X-API-Key': apiKey!,
               'Content-Type': 'application/json',
             },
           }
@@ -1540,7 +1540,7 @@ source_type=auth_logs
           {
             method: 'POST',
             headers: {
-              'Authorization': `Bearer ${apiKey}`,
+              'X-API-Key': apiKey!,
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
@@ -1574,7 +1574,7 @@ source_type=auth_logs
         const response = await fetch(`${apiUrl}/api/sigma/convert`, {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${apiKey}`,
+            'X-API-Key': apiKey!,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({ sigma_yaml: args.sigma_yaml }),
@@ -1606,7 +1606,7 @@ source_type=auth_logs
           `${apiUrl}/api/rule-repositories/coverage${query ? `?${query}` : ''}`,
           {
             headers: {
-              'Authorization': `Bearer ${apiKey}`,
+              'X-API-Key': apiKey!,
               'Content-Type': 'application/json',
             },
           }

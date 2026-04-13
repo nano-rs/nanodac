@@ -6,8 +6,10 @@ import type { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import {
   parseDetectionFile,
   validateDetection,
+  parseLookbackToMinutes,
   NanosiemClient,
   detectionToApiPayload,
+  bucketEventsByLookback,
 } from '@nanodac/core';
 
 /** Tool definitions */
@@ -96,7 +98,7 @@ export const TOOLS = [
   },
   {
     name: 'test_detection',
-    description: 'STEP 6b of new detection workflow: Test the detection query against historical data to verify it works.',
+    description: 'STEP 6b of new detection workflow: Test the detection query against historical data to verify it works. Returns grouped alert buckets when alert_mode=grouped.',
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -107,6 +109,15 @@ export const TOOLS = [
         days: {
           type: 'number',
           description: 'Days of historical data (default: 7)',
+        },
+        alert_mode: {
+          type: 'string',
+          enum: ['grouped', 'per_event'],
+          description: 'Alert mode — grouped buckets events by lookback window (default: grouped)',
+        },
+        lookback: {
+          type: 'string',
+          description: 'Lookback window for grouping (e.g., "15m", "1h"). Required for grouped mode.',
         },
       },
       required: ['query'],
@@ -423,6 +434,68 @@ export const TOOLS = [
           description: 'Filter by repository name (optional)',
         },
       },
+    },
+  },
+  // Rule lifecycle tools
+  {
+    name: 'promote_detection',
+    description: 'Promote a detection rule through its lifecycle (staging -> live -> alerting)',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        id: {
+          type: 'string',
+          description: 'Detection ID to promote',
+        },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'demote_detection',
+    description: 'Demote a detection rule (alerting -> live)',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        id: {
+          type: 'string',
+          description: 'Detection ID to demote',
+        },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'trigger_detection',
+    description: 'Manually trigger a detection rule to execute now',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        id: {
+          type: 'string',
+          description: 'Detection ID to trigger',
+        },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'validate_query',
+    description: 'Validate a detection query using NanoSIEM server-side validation. Returns effective mode, warnings, and field references.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        query: {
+          type: 'string',
+          description: 'Detection query to validate',
+        },
+        detection_mode: {
+          type: 'string',
+          enum: ['real-time', 'scheduled'],
+          description: 'Desired detection mode (optional)',
+        },
+      },
+      required: ['query'],
     },
   },
 ];
@@ -742,8 +815,40 @@ export async function handleToolCall(
           };
         }
 
+        const testData = result.data!;
+        const alertMode = (args.alert_mode as string) ?? 'grouped';
+        const lookbackStr = args.lookback as string | undefined;
+
+        // Group results by lookback window when alert_mode=grouped
+        if (
+          alertMode === 'grouped' &&
+          lookbackStr &&
+          testData.sample_events &&
+          testData.sample_events.length > 0
+        ) {
+          const lookbackMinutes = parseLookbackToMinutes(lookbackStr);
+          if (lookbackMinutes) {
+            const buckets = bucketEventsByLookback(
+              testData.sample_events as Record<string, unknown>[],
+              lookbackMinutes
+            );
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify(
+                    { ...testData, grouped_buckets: buckets },
+                    null,
+                    2
+                  ),
+                },
+              ],
+            };
+          }
+        }
+
         return {
-          content: [{ type: 'text', text: JSON.stringify(result.data, null, 2) }],
+          content: [{ type: 'text', text: JSON.stringify(testData, null, 2) }],
         };
       }
 
@@ -800,11 +905,14 @@ A detection file uses YAML frontmatter followed by a query.
 - schedule: Cron expression (e.g., "*/5 * * * *")
 - lookback: Time window (e.g., "15m", "1h", "24h")
 - alert_mode: grouped | per_event (default: grouped) — per_event creates one alert per matched event (for vendor pass-through)
+- folder: Organizational folder (e.g., "identity", "endpoint", "network", "cloud", "stash")
 - mitre_tactics: MITRE ATT&CK tactic ID (e.g., "TA0011")
 - mitre_techniques: MITRE ATT&CK technique ID (e.g., "T1071")
 - tags: Array of category tags
 - reference_url: URL with more information
 - ai_triage_hints: Object with ignore_when, suspicious_when, context
+- case_visibility: public | group | private (default: public)
+- auto_tuning: Object with enabled, min_confidence, critical
 
 ## Query Syntax
 source_type=<log_source>
@@ -835,6 +943,7 @@ detection_mode: scheduled
 schedule: "*/5 * * * *"
 lookback: 15m
 alert_mode: grouped
+folder: identity
 mitre_tactics: TA0006
 mitre_techniques: T1110
 tags:
@@ -1514,6 +1623,77 @@ source_type=auth_logs
         const result = await response.json();
         return {
           content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+        };
+      }
+
+      // Rule lifecycle tools
+      case 'promote_detection': {
+        const result = await client.promoteDetection(args.id as string);
+        if (!result.success) {
+          return {
+            content: [{ type: 'text', text: `Error: ${result.error?.message}` }],
+            isError: true,
+          };
+        }
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Promoted: ${result.data!.name} -> mode: ${result.data!.mode}`,
+            },
+          ],
+        };
+      }
+
+      case 'demote_detection': {
+        const result = await client.demoteDetection(args.id as string);
+        if (!result.success) {
+          return {
+            content: [{ type: 'text', text: `Error: ${result.error?.message}` }],
+            isError: true,
+          };
+        }
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Demoted: ${result.data!.name} -> mode: ${result.data!.mode}`,
+            },
+          ],
+        };
+      }
+
+      case 'trigger_detection': {
+        const result = await client.triggerDetection(args.id as string);
+        if (!result.success) {
+          return {
+            content: [{ type: 'text', text: `Error: ${result.error?.message}` }],
+            isError: true,
+          };
+        }
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Triggered rule ${args.id} successfully`,
+            },
+          ],
+        };
+      }
+
+      case 'validate_query': {
+        const result = await client.validateQuery(
+          args.query as string,
+          args.detection_mode as string | undefined
+        );
+        if (!result.success) {
+          return {
+            content: [{ type: 'text', text: `Error: ${result.error?.message}` }],
+            isError: true,
+          };
+        }
+        return {
+          content: [{ type: 'text', text: JSON.stringify(result.data, null, 2) }],
         };
       }
 

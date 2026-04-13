@@ -19,3 +19,6 @@ export * from './validator/index.js';
 
 // API client
 export * from './client/index.js';
+
+// Grouping logic (alert_mode=grouped bucketing)
+export * from './grouping/index.js';

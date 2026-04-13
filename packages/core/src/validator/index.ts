@@ -92,6 +92,9 @@ export function validateDetection(detection: Detection): ValidationResult {
   // AI triage hints validation
   validateAiTriageHints(metadata, warnings);
 
+  // Folder validation
+  validateFolder(metadata, errors);
+
   // Case visibility validation
   validateCaseVisibility(metadata, errors);
 
@@ -342,6 +345,22 @@ function validateAiTriageHints(
   }
 }
 
+const FOLDER_REGEX = /^[a-z0-9][a-z0-9_-]{0,49}$/;
+
+function validateFolder(
+  metadata: DetectionFrontmatter,
+  errors: ValidationError[]
+): void {
+  if (metadata.folder === undefined) return;
+  if (!FOLDER_REGEX.test(metadata.folder)) {
+    errors.push({
+      field: 'folder',
+      message: `Invalid folder: "${metadata.folder}". Must be lowercase alphanumeric with hyphens/underscores, max 50 chars`,
+      code: 'INVALID_FORMAT',
+    });
+  }
+}
+
 function validateCaseVisibility(
   metadata: DetectionFrontmatter,
   errors: ValidationError[]
@@ -371,14 +390,16 @@ function validateCaseVisibility(
     }
   }
 
-  // Validate case_groups format (alphanumeric and hyphens only)
+  // Validate case_groups format (slugs or UUIDs)
   if (metadata.case_groups) {
     const SLUG_REGEX = /^[a-z0-9-]+$/;
+    const UUID_REGEX =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     for (const group of metadata.case_groups) {
-      if (!SLUG_REGEX.test(group)) {
+      if (!SLUG_REGEX.test(group) && !UUID_REGEX.test(group)) {
         errors.push({
           field: 'case_groups',
-          message: `Invalid group slug: "${group}". Must be lowercase alphanumeric with hyphens`,
+          message: `Invalid group identifier: "${group}". Must be lowercase slug or UUID`,
           code: 'INVALID_FORMAT',
         });
       }

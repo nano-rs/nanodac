@@ -222,6 +222,28 @@ function needsUpdate(local: Detection, remote: DetectionRule): boolean {
   )
     return true;
 
+  // Compare additional fields
+  if (localPayload.alert_mode !== remote.alert_mode) return true;
+  if (localPayload.reference_url !== remote.reference_url) return true;
+  if (localPayload.author !== remote.author) return true;
+  if (localPayload.realtime_enabled !== remote.realtime_enabled) return true;
+  if (localPayload.case_visibility !== remote.case_visibility) return true;
+  if (localPayload.folder !== remote.folder) return true;
+  if (
+    JSON.stringify(localPayload.case_group_ids) !==
+    JSON.stringify(remote.case_group_ids)
+  )
+    return true;
+  if (localPayload.auto_tuning_enabled !== remote.auto_tuning_enabled)
+    return true;
+  if (
+    localPayload.auto_tuning_min_confidence !==
+    remote.auto_tuning_min_confidence
+  )
+    return true;
+  if (localPayload.auto_tuning_critical !== remote.auto_tuning_critical)
+    return true;
+
   return false;
 }
 

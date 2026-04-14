@@ -114,6 +114,8 @@ export interface DetectionFrontmatter {
   case_groups?: string[];
   /** Alert mode: grouped (all matches → 1 alert) or per_event (each match → 1 alert) */
   alert_mode?: AlertMode;
+  /** Organizational folder (e.g., "identity", "endpoint", "network", "cloud") */
+  folder?: string;
   /** Auto-tuning configuration */
   auto_tuning?: AutoTuningConfig;
   /** UDM field requirements */
@@ -174,13 +176,19 @@ export interface DetectionApiPayload {
   ai_triage_hints?: AiTriageHints;
   /** Case visibility for cases created by this rule */
   case_visibility?: CaseVisibility;
-  /** Group slugs for case permissions */
-  case_groups?: string[];
+  /** Group IDs for case permissions (UUIDs, when case_visibility = 'group') */
+  case_group_ids?: string[];
   /** Alert mode: grouped (all matches → 1 alert) or per_event (each match → 1 alert) */
   alert_mode?: AlertMode;
-  /** Auto-tuning configuration */
-  auto_tuning?: AutoTuningConfig;
-  /** UDM field requirements */
+  /** Organizational folder (e.g., "identity", "endpoint", "network", "cloud") */
+  folder?: string;
+  /** Whether auto-tuning is enabled for this rule */
+  auto_tuning_enabled?: boolean;
+  /** Minimum AI confidence score for tuning proposals (0.0-1.0) */
+  auto_tuning_min_confidence?: number;
+  /** If true, prevents auto-tuning regardless of other settings */
+  auto_tuning_critical?: boolean;
+  /** UDM field requirements (local-only, not sent to API) */
   requires?: RequiresConfig;
   /** Repository source (for linked/forked rules) */
   source_repository_slug?: string;
@@ -270,5 +278,99 @@ export interface SearchResult {
   execution_time_ms: number;
   /** Generated SQL (if requested) */
   generated_sql?: string;
+}
+
+/**
+ * Response from server-side query validation
+ */
+export interface ValidateDetectionResponse {
+  /** Whether the query is valid */
+  valid: boolean;
+  /** The effective detection mode after auto-correction */
+  effective_mode: string;
+  /** Whether a materialized view will be created */
+  creates_materialized_view: boolean;
+  /** Explanation of mode selection */
+  mode_reason: string;
+  /** Warning about auto-correction */
+  warning?: string;
+  /** Validation errors */
+  errors: string[];
+  /** Fields referenced in the query */
+  referenced_fields: string[];
+}
+
+/**
+ * Response from query formatting
+ */
+export interface FormatQueryResponse {
+  formatted_query: string;
+}
+
+/**
+ * Detection match record from /rules/{id}/matches
+ */
+export interface DetectionMatch {
+  id: string;
+  detected_at: string;
+  severity: string;
+  status: string;
+  event_count: number;
+  events: Record<string, unknown>[];
+}
+
+/**
+ * Paginated detection matches response
+ */
+export interface DetectionMatchesResponse {
+  total: number;
+  matches: DetectionMatch[];
+}
+
+/**
+ * Bulk update rules request
+ */
+export interface BulkUpdateRulesRequest {
+  rule_ids: string[];
+  mode: string;
+}
+
+/**
+ * Bulk update rules response
+ */
+export interface BulkUpdateRulesResponse {
+  updated: number;
+  skipped: number;
+  failed: Array<{ rule_id: string; error: string }>;
+}
+
+/**
+ * Import rules response
+ */
+export interface ImportRulesResponse {
+  imported: number;
+  failed: number;
+  errors: string[];
+}
+
+/**
+ * Grouped test result bucket for alert_mode=grouped
+ * Matches the in-product rule tester's bucketing behavior
+ */
+export interface GroupedTestBucket {
+  /** Window start time (ISO 8601) */
+  window_start: string;
+  /** Window end time (ISO 8601) */
+  window_end: string;
+  /** Number of events in this bucket */
+  event_count: number;
+  /** Most frequent entity in this bucket */
+  dominant_entity: {
+    field: string;
+    value: string;
+    others_count: number;
+  } | null;
+  /** Sample events from this bucket */
+  sample_events: Record<string, unknown>[];
 }
 

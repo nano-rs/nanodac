@@ -195,5 +195,57 @@ function getChanges(local: Detection, remote: DetectionRule): string[] {
     changes.push('ai_triage_hints changed');
   }
 
+  // Compare additional fields
+  if (localPayload.alert_mode !== remote.alert_mode) {
+    changes.push(
+      `alert_mode: ${remote.alert_mode || 'grouped'} -> ${localPayload.alert_mode || 'grouped'}`
+    );
+  }
+  if (localPayload.reference_url !== remote.reference_url) {
+    changes.push('reference_url changed');
+  }
+  if (localPayload.author !== remote.author) {
+    changes.push(
+      `author: ${remote.author || 'none'} -> ${localPayload.author || 'none'}`
+    );
+  }
+  if (localPayload.realtime_enabled !== remote.realtime_enabled) {
+    changes.push(
+      `realtime_enabled: ${remote.realtime_enabled} -> ${localPayload.realtime_enabled}`
+    );
+  }
+  if (localPayload.case_visibility !== remote.case_visibility) {
+    changes.push(
+      `case_visibility: ${remote.case_visibility || 'public'} -> ${localPayload.case_visibility || 'public'}`
+    );
+  }
+  if (localPayload.folder !== remote.folder) {
+    changes.push(
+      `folder: ${remote.folder || 'none'} -> ${localPayload.folder || 'none'}`
+    );
+  }
+  if (
+    JSON.stringify(localPayload.case_group_ids) !==
+    JSON.stringify(remote.case_group_ids)
+  ) {
+    changes.push('case_group_ids changed');
+  }
+  if (localPayload.auto_tuning_enabled !== remote.auto_tuning_enabled) {
+    changes.push(
+      `auto_tuning_enabled: ${remote.auto_tuning_enabled} -> ${localPayload.auto_tuning_enabled}`
+    );
+  }
+  if (
+    localPayload.auto_tuning_min_confidence !==
+    remote.auto_tuning_min_confidence
+  ) {
+    changes.push('auto_tuning_min_confidence changed');
+  }
+  if (localPayload.auto_tuning_critical !== remote.auto_tuning_critical) {
+    changes.push(
+      `auto_tuning_critical: ${remote.auto_tuning_critical} -> ${localPayload.auto_tuning_critical}`
+    );
+  }
+
   return changes;
 }

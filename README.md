@@ -108,6 +108,25 @@ Set your API key via environment variable:
 export NANOSIEM_API_KEY=your-api-key-here
 ```
 
+### Required API Key Permissions
+
+Your API key needs the following NanoSIEM permissions depending on which features you use:
+
+| Permission | Required for | Commands / Tools |
+|---|---|---|
+| `detections:view` | List, get, test, validate, format, stats, matches | `test`, `diff`, `sync --dry-run`, most MCP tools |
+| `detections:create` | Create rules, test ad-hoc queries | `sync` (create), `create_detection` |
+| `detections:edit` | Update existing rules | `sync` (update), `update_detection` |
+| `detections:promote` | Promote, demote, pause, resume, trigger | `promote_detection`, `demote_detection`, `trigger_detection` |
+| `detections:delete` | Delete rules | `sync --delete-orphans` |
+| `detections:export` | Export all rules | `exportRules` client method |
+| `rule_repositories:view` | Browse external rule repos | `list_repositories`, `browse_repository` |
+| `rule_repositories:import` | Import rules from repos | `import_rule` |
+
+**Minimum for CLI usage:** `detections:view` + `detections:create` + `detections:edit`
+
+**Full access (recommended):** All `detections:*` permissions + `rule_repositories:view` + `rule_repositories:import`
+
 ## CLI Commands
 
 ### `nanodac init`
@@ -315,7 +334,11 @@ Add to `.kiro/settings/mcp.json`:
 | `create_detection` | Create a new detection from YAML content |
 | `update_detection` | Update an existing detection |
 | `validate_detection` | Validate detection syntax locally |
-| `test_detection` | Test query against historical data |
+| `validate_query` | Server-side query validation (effective mode, field refs) |
+| `test_detection` | Test query against historical data (supports grouped bucketing) |
+| `promote_detection` | Promote rule lifecycle (staging -> live -> alerting) |
+| `demote_detection` | Demote rule (alerting -> live) |
+| `trigger_detection` | Manually trigger a rule to execute now |
 | `search` | Execute ad-hoc search queries |
 | `get_schema` | Get detection file format documentation |
 | `create_issue` | Create a GitHub issue for tracking |
@@ -324,6 +347,11 @@ Add to `.kiro/settings/mcp.json`:
 | `write_detection_file` | Write detection YAML to disk |
 | `commit_and_push` | Commit and push detection changes |
 | `create_pull_request` | Create PR with issue linking |
+| `list_repositories` | List external rule repositories (e.g., SigmaHQ) |
+| `browse_repository` | Browse rules in an external repository |
+| `import_rule` | Import a rule from an external repository |
+| `convert_sigma` | Convert a Sigma rule to nPL query |
+| `get_coverage` | Detection coverage analysis |
 
 ### AI Prompts
 

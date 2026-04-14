@@ -11,6 +11,11 @@ import type {
   DetectionResponse,
   HistoricalAnalysisResult,
   SearchResult,
+  ValidateDetectionResponse,
+  FormatQueryResponse,
+  DetectionMatchesResponse,
+  BulkUpdateRulesResponse,
+  ImportRulesResponse,
 } from '../schema/types.js';
 import { parseLookbackToMinutes } from '../validator/index.js';
 
@@ -129,14 +134,14 @@ export class NanosiemClient {
    * List all detection rules
    */
   async listDetections(): Promise<ApiResponse<DetectionRule[]>> {
-    return this.request<DetectionRule[]>('GET', '/api/detections');
+    return this.request<DetectionRule[]>('GET', '/api/rules');
   }
 
   /**
    * Get a single detection rule by ID
    */
   async getDetection(id: string): Promise<ApiResponse<DetectionRule>> {
-    return this.request<DetectionRule>('GET', `/api/detections/${id}`);
+    return this.request<DetectionRule>('GET', `/api/rules/${id}`);
   }
 
   /**
@@ -145,7 +150,7 @@ export class NanosiemClient {
   async createDetection(
     payload: DetectionApiPayload
   ): Promise<ApiResponse<DetectionResponse>> {
-    return this.request<DetectionResponse>('POST', '/api/detections', payload);
+    return this.request<DetectionResponse>('POST', '/api/rules', payload);
   }
 
   /**
@@ -157,7 +162,7 @@ export class NanosiemClient {
   ): Promise<ApiResponse<DetectionResponse>> {
     return this.request<DetectionResponse>(
       'PUT',
-      `/api/detections/${id}`,
+      `/api/rules/${id}`,
       payload
     );
   }
@@ -170,7 +175,7 @@ export class NanosiemClient {
   ): Promise<ApiResponse<{ deleted: boolean }>> {
     return this.request<{ deleted: boolean }>(
       'DELETE',
-      `/api/detections/${id}`
+      `/api/rules/${id}`
     );
   }
 
@@ -197,7 +202,7 @@ export class NanosiemClient {
   ): Promise<ApiResponse<HistoricalAnalysisResult>> {
     return this.request<HistoricalAnalysisResult>(
       'POST',
-      `/api/detections/${id}/test`,
+      `/api/rules/${id}/test`,
       { days: days ?? 7 }
     );
   }
@@ -211,7 +216,7 @@ export class NanosiemClient {
   ): Promise<ApiResponse<HistoricalAnalysisResult>> {
     return this.request<HistoricalAnalysisResult>(
       'POST',
-      '/api/detections/test',
+      '/api/rules/test',
       { query, days: days ?? 7 }
     );
   }
@@ -248,6 +253,122 @@ export class NanosiemClient {
     ApiResponse<{ status: string; version?: string }>
   > {
     return this.request<{ status: string; version?: string }>('GET', '/health');
+  }
+
+  // ==================== Rule Lifecycle ====================
+
+  /**
+   * Promote a rule (staging -> live -> alerting)
+   */
+  async promoteDetection(id: string): Promise<ApiResponse<DetectionRule>> {
+    return this.request<DetectionRule>('POST', `/api/rules/${id}/promote`);
+  }
+
+  /**
+   * Demote a rule (alerting -> live)
+   */
+  async demoteDetection(id: string): Promise<ApiResponse<DetectionRule>> {
+    return this.request<DetectionRule>('POST', `/api/rules/${id}/demote`);
+  }
+
+  /**
+   * Manually trigger a rule to execute now
+   */
+  async triggerDetection(
+    id: string
+  ): Promise<ApiResponse<{ triggered: boolean; rule_id: string }>> {
+    return this.request<{ triggered: boolean; rule_id: string }>(
+      'POST',
+      `/api/rules/${id}/trigger`
+    );
+  }
+
+  // ==================== Query Tools ====================
+
+  /**
+   * Validate a query using server-side validation
+   */
+  async validateQuery(
+    query: string,
+    detectionMode?: string
+  ): Promise<ApiResponse<ValidateDetectionResponse>> {
+    return this.request<ValidateDetectionResponse>('POST', '/api/rules/validate', {
+      query,
+      detection_mode: detectionMode,
+    });
+  }
+
+  /**
+   * Format a query with pretty-printing
+   */
+  async formatQuery(query: string): Promise<ApiResponse<FormatQueryResponse>> {
+    return this.request<FormatQueryResponse>('POST', '/api/rules/format', {
+      query,
+    });
+  }
+
+  // ==================== Matches & Stats ====================
+
+  /**
+   * Get detection matches for a rule
+   */
+  async getMatches(
+    id: string,
+    params?: { limit?: number; offset?: number; start_time?: string; end_time?: string }
+  ): Promise<ApiResponse<DetectionMatchesResponse>> {
+    const query = new URLSearchParams();
+    if (params?.limit) query.set('limit', String(params.limit));
+    if (params?.offset) query.set('offset', String(params.offset));
+    if (params?.start_time) query.set('start_time', params.start_time);
+    if (params?.end_time) query.set('end_time', params.end_time);
+    const qs = query.toString();
+    return this.request<DetectionMatchesResponse>(
+      'GET',
+      `/api/rules/${id}/matches${qs ? `?${qs}` : ''}`
+    );
+  }
+
+  /**
+   * Get detection stats (match counts by day)
+   */
+  async getStats(
+    days?: number
+  ): Promise<ApiResponse<Record<string, unknown>>> {
+    const qs = days ? `?days=${days}` : '';
+    return this.request<Record<string, unknown>>('GET', `/api/rules/stats${qs}`);
+  }
+
+  // ==================== Bulk Operations ====================
+
+  /**
+   * Bulk update rule modes
+   */
+  async bulkUpdate(
+    ruleIds: string[],
+    mode: string
+  ): Promise<ApiResponse<BulkUpdateRulesResponse>> {
+    return this.request<BulkUpdateRulesResponse>('POST', '/api/rules/bulk-update', {
+      rule_ids: ruleIds,
+      mode,
+    });
+  }
+
+  /**
+   * Import rules in bulk
+   */
+  async importRules(
+    rules: DetectionApiPayload[]
+  ): Promise<ApiResponse<ImportRulesResponse>> {
+    return this.request<ImportRulesResponse>('POST', '/api/rules/import', {
+      rules,
+    });
+  }
+
+  /**
+   * Export all rules
+   */
+  async exportRules(): Promise<ApiResponse<DetectionRule[]>> {
+    return this.request<DetectionRule[]>('GET', '/api/rules/export');
   }
 
 }
@@ -296,6 +417,13 @@ export function detectionToApiPayload(detection: Detection): DetectionApiPayload
     realtime_enabled: metadata.realtime_enabled,
     ai_triage_hints: metadata.ai_triage_hints,
     alert_mode: metadata.alert_mode,
+    folder: metadata.folder,
+    case_visibility: metadata.case_visibility,
+    case_group_ids: metadata.case_groups,
+    // Flatten auto_tuning for API (server expects flat fields)
+    auto_tuning_enabled: metadata.auto_tuning?.enabled,
+    auto_tuning_min_confidence: metadata.auto_tuning?.min_confidence,
+    auto_tuning_critical: metadata.auto_tuning?.critical,
   };
 }
 
@@ -334,6 +462,20 @@ export function detectionRuleToDetection(
     realtime_enabled: rule.realtime_enabled,
     ai_triage_hints: rule.ai_triage_hints,
     alert_mode: rule.alert_mode,
+    folder: rule.folder,
+    case_visibility: rule.case_visibility,
+    case_groups: rule.case_group_ids as string[] | undefined,
+    // Reconstruct nested auto_tuning from flat API fields
+    auto_tuning:
+      rule.auto_tuning_enabled !== undefined ||
+      rule.auto_tuning_min_confidence !== undefined ||
+      rule.auto_tuning_critical !== undefined
+        ? {
+            enabled: rule.auto_tuning_enabled,
+            min_confidence: rule.auto_tuning_min_confidence,
+            critical: rule.auto_tuning_critical,
+          }
+        : undefined,
   };
 
   return {

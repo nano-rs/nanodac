@@ -9,7 +9,10 @@ import chalk from 'chalk';
 import {
   parseDetectionFile,
   validateDetection,
+  parseLookbackToMinutes,
   NanosiemClient,
+  bucketEventsByLookback,
+  type GroupedTestBucket,
 } from '@nanodac/core';
 import { requireConfig, getApiKey } from '../config.js';
 
@@ -323,6 +326,68 @@ export async function testCommand(
       console.log(`  ${chalk.gray(dateStr)} ${chalk.cyan(bar)} ${day.count}`);
     }
     console.log('');
+  }
+
+  // Grouped alert buckets (when alert_mode=grouped and lookback is defined)
+  const alertMode = detection.metadata.alert_mode ?? 'grouped';
+  const lookback = detection.metadata.lookback;
+
+  if (
+    alertMode === 'grouped' &&
+    lookback &&
+    data.sample_events &&
+    data.sample_events.length > 0
+  ) {
+    const lookbackMinutes = parseLookbackToMinutes(lookback);
+    if (lookbackMinutes) {
+      const buckets = bucketEventsByLookback(
+        data.sample_events as Record<string, unknown>[],
+        lookbackMinutes
+      );
+
+      if (buckets.length > 0) {
+        const totalEvents = buckets.reduce((sum, b) => sum + b.event_count, 0);
+        console.log(
+          chalk.bold(
+            `═══ Grouped Alert Buckets (${buckets.length} alert${buckets.length !== 1 ? 's' : ''} from ${totalEvents} events) ═══`
+          )
+        );
+        console.log('');
+
+        for (const bucket of buckets) {
+          const startTime = new Date(bucket.window_start).toLocaleTimeString(
+            'en-US',
+            { hour: '2-digit', minute: '2-digit', hour12: false }
+          );
+          const endTime = new Date(bucket.window_end).toLocaleTimeString(
+            'en-US',
+            { hour: '2-digit', minute: '2-digit', hour12: false }
+          );
+          const startDate = new Date(bucket.window_start)
+            .toISOString()
+            .split('T')[0];
+
+          let entityStr = '';
+          if (bucket.dominant_entity) {
+            const { field, value, others_count } = bucket.dominant_entity;
+            entityStr = `${field}=${value}`;
+            if (others_count > 0)
+              entityStr += ` (+${others_count} other${others_count !== 1 ? 's' : ''})`;
+          }
+
+          const parts = [
+            chalk.gray(startDate) +
+              ' ' +
+              chalk.white(`${startTime}\u2013${endTime}`),
+            entityStr ? chalk.cyan(entityStr) : null,
+            chalk.gray(`${bucket.event_count} event${bucket.event_count !== 1 ? 's' : ''}`),
+          ].filter(Boolean);
+
+          console.log(`  ${parts.join(chalk.gray(' \u2022 '))}`);
+        }
+        console.log('');
+      }
+    }
   }
 
   // Sample events

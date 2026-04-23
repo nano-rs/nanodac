@@ -36865,8 +36865,11 @@ var VALID_SEVERITIES = [
   "low",
   "informational"
 ];
-var VALID_MODES = ["staging", "live", "alerting"];
+var VALID_MODES = ["staging", "live", "alerting", "paused"];
 var VALID_DETECTION_MODES = ["real-time", "scheduled"];
+var VALID_CASE_VISIBILITIES = ["public", "group", "private"];
+var VALID_ALERT_MODES = ["grouped", "per_event"];
+var VALID_AUTO_TUNING_MODES = ["off", "proposals", "auto_approve"];
 var CRON_FIELD = "(\\*|\\*\\/\\d+|\\d+|\\d+-\\d+|[\\d,\\-\\/\\*]+)";
 var CRON_5_FIELD = new RegExp(
   `^${CRON_FIELD}\\s+${CRON_FIELD}\\s+${CRON_FIELD}\\s+${CRON_FIELD}\\s+${CRON_FIELD}$`
@@ -36882,13 +36885,15 @@ function validateDetection(detection) {
   const warnings = [];
   const { metadata, query } = detection;
   validateRequired(metadata, errors);
-  validateEnums(metadata, errors);
+  validateEnums(metadata, errors, warnings);
   validateSchedule(metadata, errors, warnings);
   validateLookback(metadata, errors);
   validateMitre(metadata, warnings);
-  validateRiskScore(metadata, errors);
-  validateRiskModifiers(metadata, errors);
   validateAiTriageHints(metadata, warnings);
+  validateFolder(metadata, errors);
+  validateCaseVisibility(metadata, errors);
+  validateAutoTuning(metadata, errors);
+  validateRequires(metadata, warnings);
   validateQuery(query, errors, warnings);
   return {
     valid: errors.length === 0,
@@ -36926,7 +36931,7 @@ function validateRequired(metadata, errors) {
     });
   }
 }
-function validateEnums(metadata, errors) {
+function validateEnums(metadata, errors, warnings) {
   if (metadata.severity && !VALID_SEVERITIES.includes(metadata.severity)) {
     errors.push({
       field: "severity",
@@ -36948,6 +36953,22 @@ function validateEnums(metadata, errors) {
       field: "detection_mode",
       message: `Invalid detection_mode: "${metadata.detection_mode}". Must be one of: ${VALID_DETECTION_MODES.join(", ")}`,
       code: "INVALID_ENUM"
+    });
+  }
+  if (metadata.alert_mode && !VALID_ALERT_MODES.includes(
+    metadata.alert_mode
+  )) {
+    errors.push({
+      field: "alert_mode",
+      message: `Invalid alert_mode: "${metadata.alert_mode}". Must be one of: ${VALID_ALERT_MODES.join(", ")}`,
+      code: "INVALID_ENUM"
+    });
+  }
+  if (metadata.alert_mode === "per_event" && metadata.detection_mode === "real-time") {
+    warnings.push({
+      field: "alert_mode",
+      message: "per_event alert_mode with real-time detection_mode is redundant \u2014 real-time rules already process events individually",
+      code: "REDUNDANT_CONFIG"
     });
   }
 }
@@ -37010,61 +37031,6 @@ function validateMitre(metadata, warnings) {
     }
   }
 }
-function validateRiskScore(metadata, errors) {
-  if (metadata.risk_score !== void 0 && metadata.risk_score !== "auto") {
-    if (typeof metadata.risk_score !== "number") {
-      errors.push({
-        field: "risk_score",
-        message: `Invalid risk_score type. Expected number (0-100) or "auto"`,
-        code: "INVALID_TYPE"
-      });
-    } else if (metadata.risk_score < 0 || metadata.risk_score > 100) {
-      errors.push({
-        field: "risk_score",
-        message: `Risk score must be between 0 and 100. Got: ${metadata.risk_score}`,
-        code: "OUT_OF_RANGE"
-      });
-    }
-  }
-}
-function validateRiskModifiers(metadata, errors) {
-  if (!metadata.risk_modifiers) return;
-  const validOperators = [">", "<", ">=", "<=", "=", "!=", "contains"];
-  for (let i = 0; i < metadata.risk_modifiers.length; i++) {
-    const modifier = metadata.risk_modifiers[i];
-    if (!modifier.condition || modifier.condition.trim() === "") {
-      errors.push({
-        field: `risk_modifiers[${i}].condition`,
-        message: "Risk modifier condition is required",
-        code: "REQUIRED_FIELD"
-      });
-    } else {
-      const hasOperator = validOperators.some(
-        (op) => modifier.condition.includes(op)
-      );
-      if (!hasOperator) {
-        errors.push({
-          field: `risk_modifiers[${i}].condition`,
-          message: `Risk modifier condition must contain an operator (${validOperators.join(", ")})`,
-          code: "INVALID_CONDITION"
-        });
-      }
-    }
-    if (typeof modifier.score !== "number") {
-      errors.push({
-        field: `risk_modifiers[${i}].score`,
-        message: "Risk modifier score must be a number",
-        code: "INVALID_TYPE"
-      });
-    } else if (modifier.score < 0 || modifier.score > 100) {
-      errors.push({
-        field: `risk_modifiers[${i}].score`,
-        message: `Risk modifier score must be between 0 and 100. Got: ${modifier.score}`,
-        code: "OUT_OF_RANGE"
-      });
-    }
-  }
-}
 function validateAiTriageHints(metadata, warnings) {
   const hints = metadata.ai_triage_hints;
   if (!hints) return;
@@ -37091,6 +37057,122 @@ function validateAiTriageHints(metadata, warnings) {
         code: "HINT_TOO_LONG"
       });
       break;
+    }
+  }
+}
+var FOLDER_REGEX = /^[a-z0-9][a-z0-9_-]{0,49}$/;
+function validateFolder(metadata, errors) {
+  if (metadata.folder === void 0) return;
+  if (!FOLDER_REGEX.test(metadata.folder)) {
+    errors.push({
+      field: "folder",
+      message: `Invalid folder: "${metadata.folder}". Must be lowercase alphanumeric with hyphens/underscores, max 50 chars`,
+      code: "INVALID_FORMAT"
+    });
+  }
+}
+function validateCaseVisibility(metadata, errors) {
+  if (metadata.case_visibility) {
+    if (!VALID_CASE_VISIBILITIES.includes(
+      metadata.case_visibility
+    )) {
+      errors.push({
+        field: "case_visibility",
+        message: `Invalid case_visibility: "${metadata.case_visibility}". Must be one of: ${VALID_CASE_VISIBILITIES.join(", ")}`,
+        code: "INVALID_ENUM"
+      });
+    }
+    if (metadata.case_visibility === "group") {
+      if (!metadata.case_groups || metadata.case_groups.length === 0) {
+        errors.push({
+          field: "case_groups",
+          message: 'case_groups is required when case_visibility is "group"',
+          code: "REQUIRED_FIELD"
+        });
+      }
+    }
+  }
+  if (metadata.case_groups) {
+    const SLUG_REGEX = /^[a-z0-9-]+$/;
+    const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    for (const group of metadata.case_groups) {
+      if (!SLUG_REGEX.test(group) && !UUID_REGEX.test(group)) {
+        errors.push({
+          field: "case_groups",
+          message: `Invalid group identifier: "${group}". Must be lowercase slug or UUID`,
+          code: "INVALID_FORMAT"
+        });
+      }
+    }
+  }
+}
+function validateAutoTuning(metadata, errors) {
+  const autoTuning = metadata.auto_tuning;
+  if (!autoTuning) return;
+  if (autoTuning.mode && !VALID_AUTO_TUNING_MODES.includes(
+    autoTuning.mode
+  )) {
+    errors.push({
+      field: "auto_tuning.mode",
+      message: `Invalid auto_tuning mode: "${autoTuning.mode}". Must be one of: ${VALID_AUTO_TUNING_MODES.join(", ")}`,
+      code: "INVALID_ENUM"
+    });
+  }
+  if (autoTuning.min_confidence !== void 0) {
+    if (typeof autoTuning.min_confidence !== "number" || autoTuning.min_confidence < 0 || autoTuning.min_confidence > 1) {
+      errors.push({
+        field: "auto_tuning.min_confidence",
+        message: `min_confidence must be a number between 0.0 and 1.0. Got: ${autoTuning.min_confidence}`,
+        code: "OUT_OF_RANGE"
+      });
+    }
+  }
+  if (autoTuning.enabled !== void 0 && typeof autoTuning.enabled !== "boolean") {
+    errors.push({
+      field: "auto_tuning.enabled",
+      message: "auto_tuning.enabled must be a boolean",
+      code: "INVALID_TYPE"
+    });
+  }
+  if (autoTuning.critical !== void 0 && typeof autoTuning.critical !== "boolean") {
+    errors.push({
+      field: "auto_tuning.critical",
+      message: "auto_tuning.critical must be a boolean",
+      code: "INVALID_TYPE"
+    });
+  }
+}
+function validateRequires(metadata, warnings) {
+  const requires = metadata.requires;
+  if (!requires) return;
+  if (!requires.fields || requires.fields.length === 0) {
+    warnings.push({
+      field: "requires.fields",
+      message: "requires.fields is empty. Consider specifying required UDM fields",
+      code: "EMPTY_ARRAY"
+    });
+  }
+  const FIELD_REGEX = /^[a-z][a-z0-9_]*$/;
+  if (requires.fields) {
+    for (const field of requires.fields) {
+      if (!FIELD_REGEX.test(field)) {
+        warnings.push({
+          field: "requires.fields",
+          message: `Potentially invalid UDM field name: "${field}". Expected lowercase with underscores`,
+          code: "INVALID_FORMAT"
+        });
+      }
+    }
+  }
+  if (requires.source_types) {
+    for (const sourceType of requires.source_types) {
+      if (!FIELD_REGEX.test(sourceType.toLowerCase())) {
+        warnings.push({
+          field: "requires.source_types",
+          message: `Potentially invalid source_type: "${sourceType}"`,
+          code: "INVALID_FORMAT"
+        });
+      }
     }
   }
 }
@@ -37213,19 +37295,19 @@ var NanosiemClient = class {
    * List all detection rules
    */
   async listDetections() {
-    return this.request("GET", "/api/detections");
+    return this.request("GET", "/api/rules");
   }
   /**
    * Get a single detection rule by ID
    */
   async getDetection(id) {
-    return this.request("GET", `/api/detections/${id}`);
+    return this.request("GET", `/api/rules/${id}`);
   }
   /**
    * Create a new detection rule
    */
   async createDetection(payload) {
-    return this.request("POST", "/api/detections", payload);
+    return this.request("POST", "/api/rules", payload);
   }
   /**
    * Update an existing detection rule
@@ -37233,7 +37315,7 @@ var NanosiemClient = class {
   async updateDetection(id, payload) {
     return this.request(
       "PUT",
-      `/api/detections/${id}`,
+      `/api/rules/${id}`,
       payload
     );
   }
@@ -37243,20 +37325,20 @@ var NanosiemClient = class {
   async deleteDetection(id) {
     return this.request(
       "DELETE",
-      `/api/detections/${id}`
+      `/api/rules/${id}`
     );
   }
   /**
-   * Enable a detection rule
+   * Pause a detection rule (set mode to paused)
    */
-  async enableDetection(id) {
-    return this.request("POST", `/api/detections/${id}/enable`);
+  async pauseDetection(id) {
+    return this.request("POST", `/api/rules/${id}/pause`);
   }
   /**
-   * Disable a detection rule
+   * Resume a paused detection rule (set mode back to alerting)
    */
-  async disableDetection(id) {
-    return this.request("POST", `/api/detections/${id}/disable`);
+  async resumeDetection(id) {
+    return this.request("POST", `/api/rules/${id}/resume`);
   }
   /**
    * Test a detection rule against historical data
@@ -37264,7 +37346,7 @@ var NanosiemClient = class {
   async testDetection(id, days) {
     return this.request(
       "POST",
-      `/api/detections/${id}/test`,
+      `/api/rules/${id}/test`,
       { days: days ?? 7 }
     );
   }
@@ -37274,7 +37356,7 @@ var NanosiemClient = class {
   async testQuery(query, days) {
     return this.request(
       "POST",
-      "/api/detections/test",
+      "/api/rules/test",
       { query, days: days ?? 7 }
     );
   }
@@ -37303,6 +37385,93 @@ var NanosiemClient = class {
   async healthCheck() {
     return this.request("GET", "/health");
   }
+  // ==================== Rule Lifecycle ====================
+  /**
+   * Promote a rule (staging -> live -> alerting)
+   */
+  async promoteDetection(id) {
+    return this.request("POST", `/api/rules/${id}/promote`);
+  }
+  /**
+   * Demote a rule (alerting -> live)
+   */
+  async demoteDetection(id) {
+    return this.request("POST", `/api/rules/${id}/demote`);
+  }
+  /**
+   * Manually trigger a rule to execute now
+   */
+  async triggerDetection(id) {
+    return this.request(
+      "POST",
+      `/api/rules/${id}/trigger`
+    );
+  }
+  // ==================== Query Tools ====================
+  /**
+   * Validate a query using server-side validation
+   */
+  async validateQuery(query, detectionMode) {
+    return this.request("POST", "/api/rules/validate", {
+      query,
+      detection_mode: detectionMode
+    });
+  }
+  /**
+   * Format a query with pretty-printing
+   */
+  async formatQuery(query) {
+    return this.request("POST", "/api/rules/format", {
+      query
+    });
+  }
+  // ==================== Matches & Stats ====================
+  /**
+   * Get detection matches for a rule
+   */
+  async getMatches(id, params) {
+    const query = new URLSearchParams();
+    if (params?.limit) query.set("limit", String(params.limit));
+    if (params?.offset) query.set("offset", String(params.offset));
+    if (params?.start_time) query.set("start_time", params.start_time);
+    if (params?.end_time) query.set("end_time", params.end_time);
+    const qs = query.toString();
+    return this.request(
+      "GET",
+      `/api/rules/${id}/matches${qs ? `?${qs}` : ""}`
+    );
+  }
+  /**
+   * Get detection stats (match counts by day)
+   */
+  async getStats(days) {
+    const qs = days ? `?days=${days}` : "";
+    return this.request("GET", `/api/rules/stats${qs}`);
+  }
+  // ==================== Bulk Operations ====================
+  /**
+   * Bulk update rule modes
+   */
+  async bulkUpdate(ruleIds, mode) {
+    return this.request("POST", "/api/rules/bulk-update", {
+      rule_ids: ruleIds,
+      mode
+    });
+  }
+  /**
+   * Import rules in bulk
+   */
+  async importRules(rules) {
+    return this.request("POST", "/api/rules/import", {
+      rules
+    });
+  }
+  /**
+   * Export all rules
+   */
+  async exportRules() {
+    return this.request("GET", "/api/rules/export");
+  }
 };
 function detectionToApiPayload(detection) {
   const { metadata, query } = detection;
@@ -37310,13 +37479,6 @@ function detectionToApiPayload(detection) {
   if (metadata.lookback) {
     lookbackMinutes = parseLookbackToMinutes(metadata.lookback);
   }
-  let riskScore;
-  if (metadata.risk_score === "auto") {
-    riskScore = void 0;
-  } else if (typeof metadata.risk_score === "number") {
-    riskScore = metadata.risk_score;
-  }
-  const riskEntityField = metadata.risk_entity === "auto-detect" ? void 0 : metadata.risk_entity;
   const mitreTactics = Array.isArray(metadata.mitre_tactics) ? metadata.mitre_tactics : metadata.mitre_tactics ? [metadata.mitre_tactics] : [];
   const mitreTechniques = Array.isArray(metadata.mitre_techniques) ? metadata.mitre_techniques : metadata.mitre_techniques ? [metadata.mitre_techniques] : [];
   return {
@@ -37330,15 +37492,23 @@ function detectionToApiPayload(detection) {
     lookback_minutes: lookbackMinutes,
     mitre_tactics: mitreTactics,
     mitre_techniques: mitreTechniques,
-    risk_score: riskScore,
-    risk_entity_field: riskEntityField,
-    risk_modifiers: metadata.risk_modifiers,
     tags: metadata.tags ?? [],
     reference_url: metadata.reference_url,
     author: metadata.author,
     realtime_enabled: metadata.realtime_enabled,
     ai_triage_hints: metadata.ai_triage_hints,
-    enabled: metadata.enabled
+    alert_mode: metadata.alert_mode,
+    folder: metadata.folder,
+    case_visibility: metadata.case_visibility,
+    case_group_ids: metadata.case_groups,
+    // Flatten auto_tuning for API (server expects flat fields)
+    auto_tuning_enabled: metadata.auto_tuning?.enabled,
+    auto_tuning_min_confidence: metadata.auto_tuning?.min_confidence,
+    auto_tuning_critical: metadata.auto_tuning?.critical,
+    // Playbook auto-attach at firing time. Server enforces that
+    // playbook_id is set iff selector_mode is 'specific'.
+    playbook_selector_mode: metadata.playbook_selector_mode,
+    playbook_id: metadata.playbook_selector_mode === "specific" ? metadata.playbook_id ?? null : null
   };
 }
 

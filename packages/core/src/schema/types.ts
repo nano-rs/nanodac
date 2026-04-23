@@ -120,6 +120,15 @@ export interface DetectionFrontmatter {
   auto_tuning?: AutoTuningConfig;
   /** UDM field requirements */
   requires?: RequiresConfig;
+  /**
+   * Playbook auto-attach mode for alerts produced by this rule.
+   *   'none'     — no playbook (default)
+   *   'specific' — attach `playbook_id` at case-creation time
+   *   'adaptive' — let the Shadow Investigator compose on investigation wrap
+   */
+  playbook_selector_mode?: 'none' | 'specific' | 'adaptive';
+  /** Library playbook id (typeid `pb_...`) — required when `playbook_selector_mode` is 'specific' */
+  playbook_id?: string;
   /** Repository metadata (set by import, not user-authored) */
   _repository?: RepositoryMetadata;
 }
@@ -196,6 +205,10 @@ export interface DetectionApiPayload {
   source_rule_path?: string;
   /** Whether the rule is linked to upstream */
   source_linked?: boolean;
+  /** Playbook auto-attach mode: 'none' | 'specific' | 'adaptive' */
+  playbook_selector_mode?: 'none' | 'specific' | 'adaptive';
+  /** Library playbook id when selector mode is 'specific' */
+  playbook_id?: string | null;
 }
 
 /**

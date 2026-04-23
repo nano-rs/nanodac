@@ -244,6 +244,13 @@ function needsUpdate(local: Detection, remote: DetectionRule): boolean {
   if (localPayload.auto_tuning_critical !== remote.auto_tuning_critical)
     return true;
 
+  // Playbook auto-attach fields
+  const localMode = localPayload.playbook_selector_mode ?? 'none';
+  const remoteMode = remote.playbook_selector_mode ?? 'none';
+  if (localMode !== remoteMode) return true;
+  if ((localPayload.playbook_id ?? null) !== (remote.playbook_id ?? null))
+    return true;
+
   return false;
 }
 

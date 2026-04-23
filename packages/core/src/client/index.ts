@@ -424,6 +424,13 @@ export function detectionToApiPayload(detection: Detection): DetectionApiPayload
     auto_tuning_enabled: metadata.auto_tuning?.enabled,
     auto_tuning_min_confidence: metadata.auto_tuning?.min_confidence,
     auto_tuning_critical: metadata.auto_tuning?.critical,
+    // Playbook auto-attach at firing time. Server enforces that
+    // playbook_id is set iff selector_mode is 'specific'.
+    playbook_selector_mode: metadata.playbook_selector_mode,
+    playbook_id:
+      metadata.playbook_selector_mode === 'specific'
+        ? (metadata.playbook_id ?? null)
+        : null,
   };
 }
 

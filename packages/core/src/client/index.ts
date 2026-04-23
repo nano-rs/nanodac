@@ -7,6 +7,7 @@
 import type {
   Detection,
   DetectionApiPayload,
+  DetectionFrontmatter,
   DetectionRule,
   DetectionResponse,
   HistoricalAnalysisResult,
@@ -425,7 +426,32 @@ export function detectionToApiPayload(detection: Detection): DetectionApiPayload
     auto_tuning_min_confidence: metadata.auto_tuning?.min_confidence,
     auto_tuning_critical: metadata.auto_tuning?.critical,
     // Playbook auto-attach at firing time. Server enforces that
-    // playbook_id is set iff selector_mode is 'specific'.
+    // playbook_id is set iff selector_mode is 'specific'. Accepts either
+    // the two-field form (`playbook_selector_mode` + `playbook_id`) or the
+    // NAN-453 shorthand (`playbook:`). Shorthand wins when both are set.
+    ...decodePlaybook(metadata),
+  };
+}
+
+function decodePlaybook(metadata: DetectionFrontmatter): {
+  playbook_selector_mode: 'none' | 'specific' | 'adaptive' | undefined;
+  playbook_id: string | null;
+} {
+  const shorthand = metadata.playbook?.trim();
+  if (shorthand !== undefined) {
+    if (shorthand === '' || shorthand === 'none') {
+      return { playbook_selector_mode: 'none', playbook_id: null };
+    }
+    if (shorthand === 'adaptive') {
+      return { playbook_selector_mode: 'adaptive', playbook_id: null };
+    }
+    if (/^pb_[0-9a-z]+$/i.test(shorthand)) {
+      return { playbook_selector_mode: 'specific', playbook_id: shorthand };
+    }
+    // Unrecognised — fall through to two-field form below. Don't throw;
+    // sync-time errors are opaque. The server will reject if it's garbage.
+  }
+  return {
     playbook_selector_mode: metadata.playbook_selector_mode,
     playbook_id:
       metadata.playbook_selector_mode === 'specific'

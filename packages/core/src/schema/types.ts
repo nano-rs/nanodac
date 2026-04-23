@@ -125,10 +125,21 @@ export interface DetectionFrontmatter {
    *   'none'     — no playbook (default)
    *   'specific' — attach `playbook_id` at case-creation time
    *   'adaptive' — let the Shadow Investigator compose on investigation wrap
+   *
+   * Prefer the `playbook:` shorthand below for new rules — this two-field
+   * form is kept so older rules keep parsing.
    */
   playbook_selector_mode?: 'none' | 'specific' | 'adaptive';
   /** Library playbook id (typeid `pb_...`) — required when `playbook_selector_mode` is 'specific' */
   playbook_id?: string;
+  /**
+   * Shorthand for `playbook_selector_mode` + `playbook_id`. When set, wins
+   * over the two-field form above. Encoded as:
+   *   omitted / "" / "none"  — mode='none'
+   *   "adaptive"             — Shadow Investigator composes on wrap
+   *   "pb_<typeid>"          — attach that specific library playbook
+   */
+  playbook?: string;
   /** Repository metadata (set by import, not user-authored) */
   _repository?: RepositoryMetadata;
 }

@@ -15,7 +15,7 @@ import {
   detectionToApiPayload,
   type Detection,
   type DetectionRule,
-} from '@nanodac/core';
+} from '@nano-rs/dac-core';
 
 interface ValidationEntry {
   file: string;

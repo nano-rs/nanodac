@@ -14,7 +14,7 @@ import {
   detectionToApiPayload,
   type Detection,
   type DetectionRule,
-} from '@nanodac/core';
+} from '@nano-rs/dac-core';
 import { requireConfig, getApiKey, type NanodacConfig } from '../config.js';
 
 interface SyncOptions {

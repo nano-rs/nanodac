@@ -5,7 +5,7 @@
  */
 
 import chalk from 'chalk';
-import { NanosiemClient } from '@nanodac/core';
+import { NanosiemClient } from '@nano-rs/dac-core';
 import { requireConfig, getApiKey } from '../config.js';
 
 // API response types

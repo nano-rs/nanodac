@@ -34,7 +34,7 @@ ai_triage_hints:
 source_type=windows_security
 | where event_type="process_create"
 | where process_name="powershell.exe" OR process_name="pwsh.exe"
-| where command_line~"-e[ncodedcommand]*" OR command_line~"-enc "
+| where command_line=/-enc/ OR command_line=/-e /
 | risk score=75 entity=host_name factor="Encoded PowerShell command"
 | where parent_command_line IN ("winword.exe", "excel.exe", "outlook.exe")
 | risk score=95 factor="Office parent process"

@@ -377,9 +377,18 @@ export class NanosiemClient {
 // ==================== Conversion Utilities ====================
 
 /**
- * Convert a parsed Detection to API payload format
+ * Convert a parsed Detection to API payload format.
+ *
+ * `opts.sourcePath` / `opts.sourceRepoUrl` stamp Detection-as-Code provenance
+ * (NAN-1764) so nano's tuning PRs target the real file. They're opt-in: only the
+ * `sync` command (which has real repo files) passes them. MCP flows parse
+ * ad-hoc content with a placeholder path, so they omit `opts` and never stamp
+ * bogus provenance.
  */
-export function detectionToApiPayload(detection: Detection): DetectionApiPayload {
+export function detectionToApiPayload(
+  detection: Detection,
+  opts?: { sourcePath?: string; sourceRepoUrl?: string }
+): DetectionApiPayload {
   const { metadata, query } = detection;
 
   // Parse lookback to minutes
@@ -430,6 +439,9 @@ export function detectionToApiPayload(detection: Detection): DetectionApiPayload
     // the two-field form (`playbook_selector_mode` + `playbook_id`) or the
     // NAN-453 shorthand (`playbook:`). Shorthand wins when both are set.
     ...decodePlaybook(metadata),
+    // NAN-1764: DaC provenance, only when the caller supplies it (sync path).
+    ...(opts?.sourcePath ? { source_path: opts.sourcePath } : {}),
+    ...(opts?.sourceRepoUrl ? { source_repo_url: opts.sourceRepoUrl } : {}),
   };
 }
 

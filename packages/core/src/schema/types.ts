@@ -216,6 +216,15 @@ export interface DetectionApiPayload {
   source_rule_path?: string;
   /** Whether the rule is linked to upstream */
   source_linked?: boolean;
+  /**
+   * Detection-as-Code provenance (NAN-1764): repo-root-relative path of this
+   * rule's file in the DaC repo. Sent by `nanodac sync` so nano's tuning PRs
+   * target the exact file instead of a name-templated duplicate. Distinct from
+   * `source_rule_path` above, which is nano's internal curated-pull-feed model.
+   */
+  source_path?: string;
+  /** Detection-as-Code provenance (NAN-1764): repo URL this rule was synced from. */
+  source_repo_url?: string;
   /** Playbook auto-attach mode: 'none' | 'specific' | 'adaptive' */
   playbook_selector_mode?: 'none' | 'specific' | 'adaptive';
   /** Library playbook id when selector mode is 'specific' */

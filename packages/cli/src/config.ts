@@ -64,6 +64,17 @@ export interface NanodacConfig {
   searchUrl?: string;
   /** Path to detections directory */
   detectionsDir: string;
+  /**
+   * DaC repo URL (e.g. https://github.com/acme/detections). Optional and
+   * informational — sent as `source_repo_url` provenance (NAN-1764) when set.
+   */
+  repoUrl?: string;
+  /**
+   * Absolute directory containing the config file — the repo-root anchor used
+   * to make file paths repo-root-relative for `source_path` provenance
+   * (NAN-1764). Set by `loadConfig`; not a user-authored field.
+   */
+  baseDir?: string;
   /** Default severity for new detections */
   defaultSeverity?: 'medium' | 'low' | 'high' | 'critical' | 'informational';
   /** Default mode for new detections */
@@ -116,6 +127,10 @@ export async function loadConfig(cwd?: string): Promise<NanodacConfig | null> {
 
   const content = await readFile(configPath, 'utf-8');
   const config = parseYaml(content) as NanodacConfig;
+
+  // The config file lives at the DaC repo root by convention; anchor
+  // repo-relative provenance paths to it (NAN-1764).
+  config.baseDir = dirname(configPath);
 
   // Resolve detectionsDir relative to config file
   if (config.detectionsDir && !config.detectionsDir.startsWith('/')) {

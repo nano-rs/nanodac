@@ -37473,7 +37473,7 @@ var NanosiemClient = class {
     return this.request("GET", "/api/rules/export");
   }
 };
-function detectionToApiPayload(detection) {
+function detectionToApiPayload(detection, opts) {
   const { metadata, query } = detection;
   let lookbackMinutes;
   if (metadata.lookback) {
@@ -37509,7 +37509,10 @@ function detectionToApiPayload(detection) {
     // playbook_id is set iff selector_mode is 'specific'. Accepts either
     // the two-field form (`playbook_selector_mode` + `playbook_id`) or the
     // NAN-453 shorthand (`playbook:`). Shorthand wins when both are set.
-    ...decodePlaybook(metadata)
+    ...decodePlaybook(metadata),
+    // NAN-1764: DaC provenance, only when the caller supplies it (sync path).
+    ...opts?.sourcePath ? { source_path: opts.sourcePath } : {},
+    ...opts?.sourceRepoUrl ? { source_repo_url: opts.sourceRepoUrl } : {}
   };
 }
 function decodePlaybook(metadata) {
@@ -37672,6 +37675,15 @@ async function postPRComment(token, results) {
     body
   });
 }
+function sourceProvenance(detection) {
+  const sourcePath = detection.filePath.split("\\").join("/");
+  const serverUrl = process.env.GITHUB_SERVER_URL || "https://github.com";
+  const repo = process.env.GITHUB_REPOSITORY;
+  return {
+    sourcePath,
+    sourceRepoUrl: repo ? `${serverUrl}/${repo}` : void 0
+  };
+}
 async function syncDetections(client, localDetections, deleteOrphans, dryRun) {
   const result = { created: 0, updated: 0, deleted: 0 };
   const remoteResult = await client.listDetections();
@@ -37687,7 +37699,10 @@ async function syncDetections(client, localDetections, deleteOrphans, dryRun) {
       if (dryRun) {
         core.info(`[dry-run] Would create: ${name}`);
       } else {
-        const payload = detectionToApiPayload(detection);
+        const payload = detectionToApiPayload(
+          detection,
+          sourceProvenance(detection)
+        );
         const createResult = await client.createDetection(payload);
         if (createResult.success) {
           core.info(`Created: ${name}`);
@@ -37701,7 +37716,10 @@ async function syncDetections(client, localDetections, deleteOrphans, dryRun) {
   for (const [name, detection] of localDetections) {
     const remote = remoteDetections.get(name);
     if (remote) {
-      const payload = detectionToApiPayload(detection);
+      const payload = detectionToApiPayload(
+        detection,
+        sourceProvenance(detection)
+      );
       if (needsUpdate(payload, remote)) {
         if (dryRun) {
           core.info(`[dry-run] Would update: ${name}`);
@@ -37744,6 +37762,8 @@ function needsUpdate(local, remote) {
   if (local.description !== remote.description) return true;
   if (local.schedule_cron !== remote.schedule_cron) return true;
   if (JSON.stringify(local.ai_triage_hints) !== JSON.stringify(remote.ai_triage_hints))
+    return true;
+  if (remote.source_path !== void 0 && (remote.source_path ?? "") !== (local.source_path ?? ""))
     return true;
   return false;
 }

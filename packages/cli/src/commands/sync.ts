@@ -5,6 +5,7 @@
  */
 
 import { readFile } from 'fs/promises';
+import { relative, sep } from 'path';
 import fg from 'fast-glob';
 import chalk from 'chalk';
 import {
@@ -110,7 +111,7 @@ export async function syncCommand(options: SyncOptions): Promise<void> {
   }
 
   // Step 5: Execute sync
-  await executeSyncPlan(client, plan);
+  await executeSyncPlan(client, plan, config);
 
   console.log(chalk.green('\nSync complete\n'));
 }
@@ -167,7 +168,7 @@ function calculateSyncPlan(
   for (const [name, detection] of local.valid) {
     if (remote.has(name)) {
       const remoteRule = remote.get(name)!;
-      if (needsUpdate(detection, remoteRule)) {
+      if (needsUpdate(detection, remoteRule, config)) {
         plan.update.push({ detection, remote: remoteRule, name });
       } else {
         plan.unchanged.push(name);
@@ -189,9 +190,42 @@ function calculateSyncPlan(
   return plan;
 }
 
-function needsUpdate(local: Detection, remote: DetectionRule): boolean {
+/**
+ * Detection-as-Code provenance for a local file (NAN-1764): the repo-root-relative
+ * `source_path` nano needs to target the real file, plus the optional repo URL.
+ *
+ * `detection.filePath` is absolute (config's `detectionsDir` is resolved to an
+ * absolute path), so we re-anchor it to the config directory — the DaC repo root
+ * by convention — and normalize to forward slashes for GitHub.
+ */
+function sourceProvenance(
+  config: NanodacConfig,
+  detection: Detection
+): { sourcePath: string; sourceRepoUrl?: string } {
+  const base = config.baseDir ?? process.cwd();
+  const rel = relative(base, detection.filePath);
+  const sourcePath = sep === '\\' ? rel.split(sep).join('/') : rel;
+  return { sourcePath, sourceRepoUrl: config.repoUrl };
+}
+
+function needsUpdate(
+  local: Detection,
+  remote: DetectionRule,
+  config: NanodacConfig
+): boolean {
   // Compare key fields
   const localPayload = detectionToApiPayload(local);
+
+  // NAN-1764: refresh/backfill DaC provenance so a subsequent tuning PR targets
+  // the real file. A capable server always echoes `source_path` (as `null` for
+  // nano-native rules); an older nano omits the field entirely — key off that
+  // `undefined` so this never churns every rule against a server that can't
+  // store provenance. On a capable server this fires once to backfill, then on
+  // any future move/rename, and settles when the recorded path matches.
+  if (remote.source_path !== undefined) {
+    const { sourcePath } = sourceProvenance(config, local);
+    if ((remote.source_path ?? '') !== sourcePath) return true;
+  }
 
   if (localPayload.query !== remote.query) return true;
   if (localPayload.severity !== remote.severity) return true;
@@ -289,11 +323,15 @@ function displaySyncPlan(plan: SyncPlan): void {
 
 async function executeSyncPlan(
   client: NanosiemClient,
-  plan: SyncPlan
+  plan: SyncPlan,
+  config: NanodacConfig
 ): Promise<void> {
   // Create
   for (const item of plan.create) {
-    const payload = detectionToApiPayload(item.detection);
+    const payload = detectionToApiPayload(
+      item.detection,
+      sourceProvenance(config, item.detection)
+    );
     const result = await client.createDetection(payload);
     if (result.success) {
       console.log(chalk.green(`  Created: ${item.name}`));
@@ -309,7 +347,10 @@ async function executeSyncPlan(
 
   // Update
   for (const item of plan.update) {
-    const payload = detectionToApiPayload(item.detection);
+    const payload = detectionToApiPayload(
+      item.detection,
+      sourceProvenance(config, item.detection)
+    );
     const result = await client.updateDetection(item.remote.id, payload);
     if (result.success) {
       console.log(chalk.yellow(`  Updated: ${item.name}`));

@@ -195,6 +195,25 @@ interface SyncResult {
   deleted: number;
 }
 
+/**
+ * Detection-as-Code provenance for a detection (NAN-1764) so nano's tuning PRs
+ * target the real file. In GitHub Actions the repo is checked out at the
+ * workspace root and globbed with a relative pattern, so `filePath` is already
+ * repo-root-relative; the repo URL comes from the runner env.
+ */
+function sourceProvenance(detection: Detection): {
+  sourcePath: string;
+  sourceRepoUrl?: string;
+} {
+  const sourcePath = detection.filePath.split('\\').join('/');
+  const serverUrl = process.env.GITHUB_SERVER_URL || 'https://github.com';
+  const repo = process.env.GITHUB_REPOSITORY;
+  return {
+    sourcePath,
+    sourceRepoUrl: repo ? `${serverUrl}/${repo}` : undefined,
+  };
+}
+
 async function syncDetections(
   client: NanosiemClient,
   localDetections: Map<string, Detection>,
@@ -220,7 +239,10 @@ async function syncDetections(
       if (dryRun) {
         core.info(`[dry-run] Would create: ${name}`);
       } else {
-        const payload = detectionToApiPayload(detection);
+        const payload = detectionToApiPayload(
+          detection,
+          sourceProvenance(detection)
+        );
         const createResult = await client.createDetection(payload);
         if (createResult.success) {
           core.info(`Created: ${name}`);
@@ -236,7 +258,10 @@ async function syncDetections(
   for (const [name, detection] of localDetections) {
     const remote = remoteDetections.get(name);
     if (remote) {
-      const payload = detectionToApiPayload(detection);
+      const payload = detectionToApiPayload(
+        detection,
+        sourceProvenance(detection)
+      );
 
       // Simple comparison - check key fields
       if (needsUpdate(payload, remote)) {
@@ -290,6 +315,14 @@ function needsUpdate(
   if (
     JSON.stringify(local.ai_triage_hints) !==
     JSON.stringify(remote.ai_triage_hints)
+  )
+    return true;
+  // NAN-1764: backfill/refresh DaC provenance. Only when the server echoes
+  // source_path (null for nano-native rules); an older nano omits it, so keying
+  // off `undefined` avoids churning every rule against a server that can't store it.
+  if (
+    remote.source_path !== undefined &&
+    (remote.source_path ?? '') !== (local.source_path ?? '')
   )
     return true;
   return false;

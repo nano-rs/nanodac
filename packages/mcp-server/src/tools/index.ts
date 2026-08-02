@@ -10,7 +10,7 @@ import {
   NanosiemClient,
   detectionToApiPayload,
   bucketEventsByLookback,
-} from '@nanodac/core';
+} from '@nano-rs/dac-core';
 
 /** Tool definitions */
 export const TOOLS = [

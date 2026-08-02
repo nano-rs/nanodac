@@ -1,5 +1,5 @@
 /**
- * @nanodac/core - Core library for NanoSIEM detection-as-code
+ * @nano-rs/dac-core - Core library for NanoSIEM detection-as-code
  *
  * This package provides:
  * - Type definitions for detection files and API payloads

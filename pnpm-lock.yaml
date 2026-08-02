@@ -29,7 +29,7 @@ importers:
 
   packages/cli:
     dependencies:
-      '@nanodac/core':
+      '@nano-rs/dac-core':
         specifier: workspace:*
         version: link:../core
       chalk:
@@ -85,7 +85,7 @@ importers:
       '@actions/github':
         specifier: ^6.0.0
         version: 6.0.1
-      '@nanodac/core':
+      '@nano-rs/dac-core':
         specifier: workspace:*
         version: link:../core
       fast-glob:
@@ -110,7 +110,7 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: ^1.0.0
         version: 1.25.2(hono@4.11.3)(zod@4.3.5)
-      '@nanodac/core':
+      '@nano-rs/dac-core':
         specifier: workspace:*
         version: link:../core
     devDependencies:

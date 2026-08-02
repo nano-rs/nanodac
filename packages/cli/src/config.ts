@@ -3,7 +3,7 @@
  */
 
 import { readFile } from 'fs/promises';
-import { NanosiemClient } from '@nanodac/core';
+import { NanosiemClient } from '@nano-rs/dac-core';
 import { existsSync, readFileSync as readFileSyncFs } from 'fs';
 import { parse as parseYaml } from 'yaml';
 import { join, dirname } from 'path';

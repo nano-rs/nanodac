@@ -1,3 +1,4 @@
+import { OBSERVABILITY_TOOLS, handleObservabilityTool } from './observability.js';
 /**
  * MCP Tools for NanoSIEM detection management
  */
@@ -14,6 +15,7 @@ import {
 
 /** Tool definitions */
 export const TOOLS = [
+  ...OBSERVABILITY_TOOLS,
   {
     name: 'list_detections',
     description: 'List all detection rules from NanoSIEM',
@@ -598,6 +600,7 @@ export async function handleToolCall(
   name: string,
   args: Record<string, unknown>
 ): Promise<{ content: Array<{ type: 'text'; text: string }>; isError?: boolean }> {
+  if (OBSERVABILITY_TOOLS.some((tool) => tool.name === name)) return handleObservabilityTool(name, args);
   const client = getClient();
 
   try {

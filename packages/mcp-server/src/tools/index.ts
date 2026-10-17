@@ -1,4 +1,5 @@
 import { MITRE_TOOLS, handleMitreTool } from './mitre.js';
+import { OBSERVABILITY_TOOLS, handleObservabilityTool } from './observability.js';
 /**
  * MCP Tools for NanoSIEM detection management
  */
@@ -16,6 +17,7 @@ import {
 /** Tool definitions */
 export const TOOLS = [
   ...MITRE_TOOLS,
+  ...OBSERVABILITY_TOOLS,
   {
     name: 'list_detections',
     description: 'List all detection rules from NanoSIEM',
@@ -601,6 +603,7 @@ export async function handleToolCall(
   args: Record<string, unknown>
 ): Promise<{ content: Array<{ type: 'text'; text: string }>; isError?: boolean }> {
   if (name === 'get_mitre_coverage') return handleMitreTool(args);
+  if (OBSERVABILITY_TOOLS.some((tool) => tool.name === name)) return handleObservabilityTool(name, args);
   const client = getClient();
 
   try {

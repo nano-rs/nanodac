@@ -472,19 +472,19 @@ function validateRequires(
   if (!requires.fields || requires.fields.length === 0) {
     warnings.push({
       field: 'requires.fields',
-      message: 'requires.fields is empty. Consider specifying required UDM fields',
+      message: 'requires.fields is empty. Consider specifying required OCSF 1.9 fields',
       code: 'EMPTY_ARRAY',
     });
   }
 
-  // Validate field names are valid UDM fields (basic check - lowercase with underscores)
-  const FIELD_REGEX = /^[a-z][a-z0-9_]*$/;
+  // Validate field names are valid OCSF 1.9 fields (basic check - lowercase with underscores)
+  const FIELD_REGEX = /^[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)*$/;
   if (requires.fields) {
     for (const field of requires.fields) {
       if (!FIELD_REGEX.test(field)) {
         warnings.push({
           field: 'requires.fields',
-          message: `Potentially invalid UDM field name: "${field}". Expected lowercase with underscores`,
+          message: `Potentially invalid OCSF 1.9 field name: "${field}". Expected canonical dotted OCSF paths`,
           code: 'INVALID_FORMAT',
         });
       }
@@ -523,10 +523,10 @@ function validateQuery(
   const trimmed = query.trim();
 
   // Warn if query doesn't start with a source filter
-  if (!trimmed.startsWith('source_type=') && !trimmed.startsWith('*')) {
+  if (!/^(?:metadata\.log_source|class_uid|category_uid|activity_id)\s*=/.test(trimmed) && !trimmed.startsWith('*')) {
     warnings.push({
       field: 'query',
-      message: 'Query should typically start with source_type= filter or *',
+      message: 'Query should typically start with a canonical OCSF source/class filter or *',
       code: 'QUERY_NO_SOURCE',
     });
   }

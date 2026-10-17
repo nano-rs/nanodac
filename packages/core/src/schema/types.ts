@@ -50,11 +50,11 @@ export interface AutoTuningConfig {
 }
 
 /**
- * UDM field requirements for a detection rule
+ * OCSF 1.9 field requirements for a detection rule
  * Used for coverage analysis and validation
  */
 export interface RequiresConfig {
-  /** UDM fields required for this detection to work */
+  /** OCSF 1.9 fields required for this detection to work */
   fields: string[];
   /** Suggested source types that typically provide these fields */
   source_types?: string[];
@@ -84,6 +84,8 @@ export interface DetectionFrontmatter {
   title: string;
   /** Description of what the detection finds */
   description?: string;
+  /** Bind an active rule to an ingestion source when the query spans sources. */
+  source_slug?: string;
   /** Author name or email */
   author?: string;
   /** Severity level */
@@ -118,7 +120,7 @@ export interface DetectionFrontmatter {
   folder?: string;
   /** Auto-tuning configuration */
   auto_tuning?: AutoTuningConfig;
-  /** UDM field requirements */
+  /** OCSF 1.9 field requirements */
   requires?: RequiresConfig;
   /**
    * Playbook auto-attach mode for alerts produced by this rule.
@@ -153,7 +155,7 @@ export interface Detection {
   filePath: string;
   /** Parsed frontmatter metadata */
   metadata: DetectionFrontmatter;
-  /** Query body (SPL-like query after frontmatter) */
+  /** Query body (nPL query after frontmatter) */
   query: string;
   /** Raw file content (for diffing) */
   raw: string;
@@ -164,11 +166,13 @@ export interface Detection {
  * Normalized version of Detection for API compatibility
  */
 export interface DetectionApiPayload {
+  /** Ingestion source binding accepted by lean authoring. */
+  source_slug?: string;
   /** Detection name (from title) */
   name: string;
   /** Description */
   description?: string;
-  /** SPL-like query */
+  /** nPL query */
   query: string;
   /** Severity level */
   severity: Severity;
@@ -208,7 +212,7 @@ export interface DetectionApiPayload {
   auto_tuning_min_confidence?: number;
   /** If true, prevents auto-tuning regardless of other settings */
   auto_tuning_critical?: boolean;
-  /** UDM field requirements (local-only, not sent to API) */
+  /** OCSF 1.9 field requirements (local-only, not sent to API) */
   requires?: RequiresConfig;
   /** Repository source (for linked/forked rules) */
   source_repository_slug?: string;
@@ -236,10 +240,10 @@ export interface DetectionApiPayload {
  * Includes server-generated fields like id, created_at, etc.
  */
 export interface DetectionRule extends DetectionApiPayload {
-  /** Unique rule ID (UUID) */
+  /** Unique rule ID (API TypeID) */
   id: string;
-  /** Materialized view name (for real-time detections) */
-  materialized_view_name?: string;
+  execution_mode?: 'scheduled' | 'near_real_time';
+  near_real_time_interval_seconds?: number;
   /** AI-generated narrative explaining the detection */
   narrative?: string;
   /** Whether this rule was AI-generated */
@@ -293,6 +297,10 @@ export interface HistoricalAnalysisResult {
   total_matches: number;
   /** Sample events from matches */
   sample_events: Record<string, unknown>[];
+  failed_windows?: number;
+  error_sample?: string;
+  matches_by_bucket?: Array<{ bucket_start: string; count: number }>;
+  bucket_size_seconds?: number;
   /** Matches grouped by day */
   matches_by_day?: DailyMatchCount[];
   /** Execution time in milliseconds */
@@ -309,6 +317,11 @@ export interface SearchResult {
   total_count: number;
   /** Query execution time in milliseconds */
   execution_time_ms: number;
+  /** False means total_count is a lower bound. */
+  total_count_exact: boolean;
+  has_more: boolean;
+  next_offset: number | null;
+  warnings?: string[];
   /** Generated SQL (if requested) */
   generated_sql?: string;
 }
@@ -321,6 +334,8 @@ export interface ValidateDetectionResponse {
   valid: boolean;
   /** The effective detection mode after auto-correction */
   effective_mode: string;
+  execution_mode: 'scheduled' | 'near_real_time';
+  near_real_time_interval_seconds?: number;
   /** Whether a materialized view will be created */
   creates_materialized_view: boolean;
   /** Explanation of mode selection */
@@ -407,3 +422,22 @@ export interface GroupedTestBucket {
   sample_events: Record<string, unknown>[];
 }
 
+
+/** Canonical tenant field catalog from /api/schema/fields. */
+export interface SchemaFieldsResponse {
+  schema: string;
+  schema_version: string;
+  strict_canonical_fields: boolean;
+  fields: Array<{ name: string; type: string; category: string; entity_type?: string; prewhere: boolean; search: boolean }>;
+}
+
+/** Manual execution is queued for the tenant detection runtime. */
+export interface TriggerDetectionResponse {
+  triggered: boolean;
+  rule_id: string;
+  execution: 'queued';
+  execution_mode: 'scheduled' | 'near_real_time';
+  near_real_time_interval_seconds?: number;
+  scheduled_for: string;
+  window_start: string;
+}

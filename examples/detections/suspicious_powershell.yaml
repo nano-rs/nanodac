@@ -31,11 +31,9 @@ ai_triage_hints:
     - "User has no history of PowerShell usage"
   context: "Base64 encoded PowerShell is very common in attacks but also used by some legitimate admin tools. Always decode the command to understand what it does. Check for download cradles, reverse shells, or credential access."
 ---
-source_type=windows_security
-| where event_type="process_create"
-| where process_name="powershell.exe" OR process_name="pwsh.exe"
-| where command_line~"-e[ncodedcommand]*" OR command_line~"-enc "
-| risk score=75 entity=host_name factor="Encoded PowerShell command"
-| where parent_command_line IN ("winword.exe", "excel.exe", "outlook.exe")
-| risk score=95 factor="Office parent process"
-| stats count() by user_name, host_name, command_line, risk_score, risk_factors
+metadata.log_source=windows_security
+| where class_uid=1007 AND activity_id=1
+| where process.name="powershell.exe" OR process.name="pwsh.exe"
+| where process.cmd_line~"-e[ncodedcommand]*" OR process.cmd_line~"-enc "
+| risk score=75 entity=device.hostname factor="Encoded PowerShell command"
+| stats count() by user.name, device.hostname, process.cmd_line, risk_score, risk_factors

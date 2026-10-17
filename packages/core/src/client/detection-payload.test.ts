@@ -8,7 +8,7 @@ severity: high
 mode: alerting
 detection_mode: scheduled
 ---
-source_type=windows | stats count by user
+metadata.log_source=windows | stats count() by user.name
 `;
 
 function sampleDetection() {

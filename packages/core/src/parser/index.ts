@@ -7,7 +7,7 @@
  * severity: medium
  * ...
  * ---
- * source_type=logs | where status=500
+ * metadata.log_source="logs" | where status_id=2
  */
 
 import { parse as parseYaml } from 'yaml';

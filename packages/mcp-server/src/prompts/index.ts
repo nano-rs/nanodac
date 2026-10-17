@@ -170,7 +170,7 @@ ${args.threat_description || 'No description provided'}
 
 ## Requirements
 - Use YAML frontmatter format with these fields: title, description, author, severity, mode, detection_mode, schedule, lookback, alert_mode, mitre_tactics, mitre_techniques, tags, ai_triage_hints
-- Use NanoSIEM's piped query syntax: source_type=X | command1 | command2
+- Use NanoSIEM's piped query syntax: metadata.log_source=X | command1 | command2
 - Available commands: stats, where, timechart, table, sort, head, tail, prevalence, lookup, risk
 - Use | risk score=X entity=field factor="description" in the query for dynamic risk scoring
 - Severity: ${args.severity || 'medium'}
@@ -183,28 +183,28 @@ Alerts must contain enough context for analysts to investigate WITHOUT needing t
 
 BAD - Only stats output (analyst gets just numbers):
 \`\`\`
-source_type=auth | stats count() by src_ip | where count > 10
+metadata.log_source=auth | stats count() by src_endpoint.ip | where count > 10
 \`\`\`
-Alert output: { src_ip: "10.1.1.5", count: 15 } - NOT USEFUL!
+Alert output: { src_endpoint.ip: "10.1.1.5", count: 15 } - NOT USEFUL!
 
 GOOD - Include contextual fields for investigation:
 \`\`\`
-source_type=auth
-  | where action="failed"
+metadata.log_source=auth
+  | where status_id=2
   | stats count() as attempts,
-          values(user) as targeted_users,
-          values(dest_host) as targeted_hosts,
-          min(timestamp) as first_seen,
-          max(timestamp) as last_seen
-    by src_ip
+          values(user.name) as targeted_users,
+          values(dst_endpoint.hostname) as targeted_hosts,
+          min(time) as first_seen,
+          max(time) as last_seen
+    by src_endpoint.ip
   | where attempts > 10
 \`\`\`
-Alert output includes: src_ip, attempt count, which users were targeted, which hosts, time range
+Alert output includes: src_endpoint.ip, attempt count, which users were targeted, which hosts, time range
 
 ALWAYS include in stats aggregations:
-- Time context: min(timestamp), max(timestamp) or first_seen/last_seen
-- Target context: values(user), values(dest_ip), values(url), etc.
-- Source context: values(src_host), values(process_name), etc.
+- Time context: min(time), max(time) or first_seen/last_seen
+- Target context: values(user.name), values(dst_endpoint.ip), values(http_request.url.url_string), etc.
+- Source context: values(src_endpoint.hostname), values(process.name), etc.
 - The specific artifacts that triggered the alert
 
 ## CRITICAL: Threshold Selection — Favor Lower, Catch More
@@ -221,10 +221,10 @@ Recommended thresholds (not conservative defaults):
 - TGS requests (kerberoast): \`> 10\` not \`> 100\` — targeted roasting hits 10-20 SPNs
 
 Process hunting — use FULL LOLBin list, not just cmd+powershell:
-\`process_name IN ("cmd.exe", "powershell.exe", "pwsh.exe", "wscript.exe", "cscript.exe", "mshta.exe", "rundll32.exe", "regsvr32.exe", "certutil.exe", "bitsadmin.exe", "msbuild.exe", "installutil.exe", "wmic.exe")\`
+\`process.name IN ("cmd.exe", "powershell.exe", "pwsh.exe", "wscript.exe", "cscript.exe", "mshta.exe", "rundll32.exe", "regsvr32.exe", "certutil.exe", "bitsadmin.exe", "msbuild.exe", "installutil.exe", "wmic.exe")\`
 
-Use \`command_line\` (full command line) for length/entropy checks, not \`process_name\` (just the exe name).
-Always include \`parent_command_line\` in output — parent-child context is critical.
+Use \`process.cmd_line\` (full command line) for length/entropy checks, not \`process.name\` (just the exe name).
+Always include \`process.parent_process.cmd_line\` in output — parent-child context is critical.
 
 ## Format
 \`\`\`yaml
@@ -251,10 +251,10 @@ ai_triage_hints:
     - "Suspicious condition 2"
   context: "Additional context for analysts"
 ---
-source_type=log_source
+metadata.log_source=log_source
 | command1
 | command2
-| risk score=50 entity=src_ip factor="Base detection"
+| risk score=50 entity=src_endpoint.ip factor="Base detection"
 | where additional_condition
 | risk score=80 factor="Elevated risk condition"
 | table field1, field2, risk_score, risk_factors
@@ -275,7 +275,7 @@ ${args.detection_content || 'No detection content provided'}
 ${args.false_positive_patterns || 'Not specified - suggest common exclusions based on the detection type'}
 
 ## Tuning Options
-1. Add exclusion conditions with \`where\` clauses (e.g., \`| where NOT src_ip IN ("10.1.1.50")\`)
+1. Add exclusion conditions with \`where\` clauses (e.g., \`| where NOT src_endpoint.ip IN ("10.1.1.50")\`)
 2. Adjust thresholds in aggregation queries (e.g., increase count threshold)
 3. Add prevalence filtering for rare artifacts (\`| prevalence domain < 5\`)
 4. Update ai_triage_hints with ignore_when patterns for known benign activity

@@ -29,14 +29,14 @@ ai_triage_hints:
     - "User has no business justification for large external transfers"
   context: "Large data transfers to low prevalence domains often indicate data exfiltration. Attackers use unique domains to avoid detection and transfer stolen data. However, legitimate use cases include cloud backups, software deployments, or niche business applications."
 ---
-source_type=squid_proxy
+metadata.log_source=squid_proxy
 | prevalence enrich=true window=24h
 | where host_count < 3
-| stats sum(bytes_out) as total_bytes_out, count() as connection_count by src_ip, dest_domain, user
+| stats sum(traffic.bytes_out) as total_bytes_out, count() as connection_count by src_endpoint.ip, http_request.url.hostname, user.name
 | where total_bytes_out > 50000000
 | eval total_mb = round(total_bytes_out / 1000000, 2)
-| risk score=60 entity=src_ip factor="Large transfer to rare domain"
+| risk score=60 entity=src_endpoint.ip factor="Large transfer to rare domain"
 | where total_bytes_out > 100000000
 | risk score=80 factor="Very large transfer (>100MB)"
 | sort total_bytes_out desc
-| table timestamp, src_ip, user, dest_domain, total_mb, connection_count, host_count, risk_score, risk_factors
+| table time, src_endpoint.ip, user.name, http_request.url.hostname, total_mb, connection_count, host_count, risk_score, risk_factors

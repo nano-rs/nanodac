@@ -60,6 +60,7 @@ interface RepoAddOptions {
   description?: string;
   branch?: string;
   rulesPath?: string;
+  ruleFormat?: string;
   autoSync?: boolean;
 }
 
@@ -102,7 +103,7 @@ export async function repoListCommand(): Promise<void> {
 
   const response = await fetch(`${(client as any).apiUrl}/api/rule-repositories`, {
     headers: {
-      'Authorization': `Bearer ${(client as any).apiKey}`,
+      'X-API-Key': (client as any).apiKey,
       'Content-Type': 'application/json',
     },
   });
@@ -153,13 +154,14 @@ export async function repoAddCommand(options: RepoAddOptions): Promise<void> {
     description: options.description,
     branch: options.branch || 'main',
     rules_path: options.rulesPath || 'rules/',
+    rule_format: options.ruleFormat || 'nanosiem',
     auto_sync_enabled: options.autoSync || false,
   };
 
   const response = await fetch(`${(client as any).apiUrl}/api/rule-repositories`, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${(client as any).apiKey}`,
+      'X-API-Key': (client as any).apiKey,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(body),
@@ -190,7 +192,7 @@ export async function repoSyncCommand(options: RepoSyncOptions): Promise<void> {
   // First, find the repository by name
   const listResponse = await fetch(`${(client as any).apiUrl}/api/rule-repositories`, {
     headers: {
-      'Authorization': `Bearer ${(client as any).apiKey}`,
+      'X-API-Key': (client as any).apiKey,
       'Content-Type': 'application/json',
     },
   });
@@ -217,7 +219,7 @@ export async function repoSyncCommand(options: RepoSyncOptions): Promise<void> {
     {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${(client as any).apiKey}`,
+        'X-API-Key': (client as any).apiKey,
         'Content-Type': 'application/json',
       },
     }
@@ -229,6 +231,10 @@ export async function repoSyncCommand(options: RepoSyncOptions): Promise<void> {
     process.exit(1);
   }
 
+  if (syncResponse.status === 202) {
+    console.log(chalk.green('Repository sync accepted; check repository status after the worker finishes.'));
+    return;
+  }
   const result = await syncResponse.json() as SyncResult;
   console.log('');
   console.log(chalk.green('Sync complete!'));
@@ -251,7 +257,7 @@ export async function repoBrowseCommand(options: RepoBrowseOptions): Promise<voi
   // Find the repository
   const listResponse = await fetch(`${(client as any).apiUrl}/api/rule-repositories`, {
     headers: {
-      'Authorization': `Bearer ${(client as any).apiKey}`,
+      'X-API-Key': (client as any).apiKey,
       'Content-Type': 'application/json',
     },
   });
@@ -283,7 +289,7 @@ export async function repoBrowseCommand(options: RepoBrowseOptions): Promise<voi
     `${(client as any).apiUrl}/api/rule-repositories/${browseRepo.id}/rules${query ? `?${query}` : ''}`,
     {
       headers: {
-        'Authorization': `Bearer ${(client as any).apiKey}`,
+        'X-API-Key': (client as any).apiKey,
         'Content-Type': 'application/json',
       },
     }
@@ -345,7 +351,7 @@ export async function repoImportCommand(options: RepoImportOptions): Promise<voi
   // Find the repository
   const listResponse = await fetch(`${(client as any).apiUrl}/api/rule-repositories`, {
     headers: {
-      'Authorization': `Bearer ${(client as any).apiKey}`,
+      'X-API-Key': (client as any).apiKey,
       'Content-Type': 'application/json',
     },
   });
@@ -372,7 +378,7 @@ export async function repoImportCommand(options: RepoImportOptions): Promise<voi
     `${(client as any).apiUrl}/api/rule-repositories/${importRepo.id}/rules/preview/${encodeURIComponent(options.path)}`,
     {
       headers: {
-        'Authorization': `Bearer ${(client as any).apiKey}`,
+        'X-API-Key': (client as any).apiKey,
         'Content-Type': 'application/json',
       },
     }
@@ -415,7 +421,7 @@ export async function repoImportCommand(options: RepoImportOptions): Promise<voi
     {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${(client as any).apiKey}`,
+        'X-API-Key': (client as any).apiKey,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({

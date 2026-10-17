@@ -113,6 +113,7 @@ repoCmd
   .option('-d, --description <desc>', 'Repository description')
   .option('-b, --branch <branch>', 'Branch to sync (default: main)')
   .option('-p, --rules-path <path>', 'Path to rules folder (default: rules/)')
+  .option('--rule-format <format>', 'Rule format: nanosiem or sigma', 'nanosiem')
   .option('--auto-sync', 'Enable automatic syncing')
   .action(repoAddCommand);
 

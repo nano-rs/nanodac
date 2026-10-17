@@ -12,7 +12,8 @@ import {
   parseLookbackToMinutes,
   NanosiemClient,
   bucketEventsByLookback,
-  type GroupedTestBucket,
+  flattenEvent,
+  getFieldValue,
 } from '@nanodac/core';
 import { requireConfig, getApiKey } from '../config.js';
 
@@ -25,30 +26,22 @@ export interface TestOptions {
   compact?: boolean;
 }
 
-// Key fields to highlight in event output
-const KEY_FIELDS = [
-  'timestamp', 'source_type', 'src_ip', 'dest_ip', 'src_host', 'dest_host',
-  'user', 'action', 'status', 'status_code', 'url', 'url_domain', 'file_path',
-  'process_name', 'command_line', 'severity', 'message'
-];
-
 /**
  * Filter out null, empty, and uninteresting fields from an event
  */
 function filterEvent(event: Record<string, unknown>, customFields?: string[]): Record<string, unknown> {
+  const sourceEvent = event;
+  event = flattenEvent(event);
   const filtered: Record<string, unknown> = {};
   const fieldsToShow = customFields || Object.keys(event);
 
   for (const key of fieldsToShow) {
-    if (!(key in event)) continue;
+    const value = key in event ? event[key] : getFieldValue(sourceEvent, key);
 
-    const value = event[key];
-
-    // Skip null, undefined, empty strings, empty arrays, zeros (except status_code)
+    // Skip null, undefined, empty strings, empty arrays
     if (value === null || value === undefined) continue;
     if (value === '') continue;
     if (Array.isArray(value) && value.length === 0) continue;
-    if (value === 0 && !['status_code', 'bytes_in', 'bytes_out', 'duration'].includes(key)) continue;
 
     // Skip internal fields unless explicitly requested
     if (key.startsWith('_') && !customFields) continue;
@@ -74,44 +67,44 @@ function formatEvent(event: Record<string, unknown>, index: number, compact: boo
 
   if (compact) {
     // Compact: show key fields on one line each
-    const timestamp = filtered.timestamp || filtered.ingest_time;
+    const timestamp = filtered['time'] || filtered['metadata.logged_time'];
     if (timestamp) {
       lines.push(`  ${chalk.gray('time:')} ${chalk.white(String(timestamp))}`);
     }
 
     // Source info
-    const source = [filtered.src_ip, filtered.src_host, filtered.user].filter(Boolean).join(' | ');
+    const source = [filtered['src_endpoint.ip'], filtered['src_endpoint.hostname'], filtered['user.name']].filter(Boolean).join(' | ');
     if (source) {
       lines.push(`  ${chalk.gray('source:')} ${chalk.cyan(source)}`);
     }
 
     // Destination info
-    const dest = [filtered.dest_ip, filtered.dest_host, filtered.url_domain].filter(Boolean).join(' | ');
+    const dest = [filtered['dst_endpoint.ip'], filtered['dst_endpoint.hostname'], filtered['http_request.url.hostname']].filter(Boolean).join(' | ');
     if (dest) {
       lines.push(`  ${chalk.gray('dest:')} ${chalk.yellow(dest)}`);
     }
 
     // Action/status
-    const action = [filtered.action, filtered.status, filtered.status_code].filter(Boolean).join(' ');
+    const action = [filtered['activity_name'], filtered.status, filtered.status_code].filter(Boolean).join(' ');
     if (action) {
       lines.push(`  ${chalk.gray('action:')} ${chalk.green(action)}`);
     }
 
     // URL or file path
-    if (filtered.url) {
-      lines.push(`  ${chalk.gray('url:')} ${chalk.white(String(filtered.url))}`);
-    } else if (filtered.file_path) {
-      lines.push(`  ${chalk.gray('path:')} ${chalk.white(String(filtered.file_path))}`);
+    if (filtered['http_request.url.url_string']) {
+      lines.push(`  ${chalk.gray('url:')} ${chalk.white(String(filtered['http_request.url.url_string']))}`);
+    } else if (filtered['file.path']) {
+      lines.push(`  ${chalk.gray('path:')} ${chalk.white(String(filtered['file.path']))}`);
     }
 
     // Command line if present
-    if (filtered.command_line) {
-      const cmd = String(filtered.command_line);
+    if (filtered['process.cmd_line']) {
+      const cmd = String(filtered['process.cmd_line']);
       lines.push(`  ${chalk.gray('cmd:')} ${chalk.white(cmd.length > 80 ? cmd.slice(0, 77) + '...' : cmd)}`);
     }
 
     // Message if present and different from other fields
-    if (filtered.message && !filtered.url && !filtered.command_line) {
+    if (filtered.message && !filtered['http_request.url.url_string'] && !filtered['process.cmd_line']) {
       const msg = String(filtered.message);
       lines.push(`  ${chalk.gray('msg:')} ${chalk.white(msg.length > 100 ? msg.slice(0, 97) + '...' : msg)}`);
     }
@@ -123,13 +116,13 @@ function formatEvent(event: Record<string, unknown>, index: number, compact: boo
   } else {
     // Full: show all non-null fields organized by category
     const categories: Record<string, string[]> = {
-      'Time': ['timestamp', 'ingest_time', 'duration'],
-      'Source': ['src_ip', 'src_host', 'src_port', 'src_user', 'src_mac', 'user', 'user_name'],
-      'Destination': ['dest_ip', 'dest_host', 'dest_port', 'dest_user', 'dest_mac', 'url', 'url_domain', 'uri_path'],
-      'Action': ['action', 'status', 'status_code', 'result', 'http_method', 'protocol'],
-      'Process': ['process_name', 'process_path', 'process_id', 'command_line', 'parent_command_line'],
-      'File': ['file_path', 'file_name', 'file_size', 'file_action'],
-      'Network': ['bytes_in', 'bytes_out', 'packets_in', 'packets_out', 'direction'],
+      'Time': ['time', 'metadata.logged_time', 'duration'],
+      'Source': ['src_endpoint.ip', 'src_endpoint.hostname', 'src_endpoint.port', 'actor.user.name', 'src_endpoint.mac', 'user.name'],
+      'Destination': ['dst_endpoint.ip', 'dst_endpoint.hostname', 'dst_endpoint.port', 'user.name', 'dst_endpoint.mac', 'http_request.url.url_string', 'http_request.url.hostname', 'http_request.url.path'],
+      'Action': ['activity_name', 'status', 'status_code', 'http_request.http_method', 'connection_info.protocol_num'],
+      'Process': ['process.name', 'process.file.path', 'process.pid', 'process.cmd_line'],
+      'File': ['file.path', 'file.name', 'file.size'],
+      'Network': ['traffic.bytes_in', 'traffic.bytes_out', 'traffic.packets_in', 'traffic.packets_out', 'connection_info.direction'],
       'Other': [] // catch-all
     };
 
@@ -270,7 +263,13 @@ export async function testCommand(
   console.log('');
 
   // Test query
-  const result = await client.testQuery(detection.query, days);
+  const end = new Date();
+  const start = new Date(end.getTime() - (options.hours ? Number(options.hours) * 3600000 : days * 86400000));
+  const result = await client.testQuery(detection.query, days, {
+    timeRange: { start: start.toISOString(), end: end.toISOString() },
+    scheduleCron: detection.metadata.schedule,
+    lookbackMinutes: detection.metadata.lookback ? parseLookbackToMinutes(detection.metadata.lookback) : undefined,
+  });
 
   if (!result.success) {
     console.log(chalk.red(`Test failed: ${result.error?.message}`));
@@ -278,6 +277,11 @@ export async function testCommand(
   }
 
   const data = result.data!;
+
+  if (data.failed_windows) {
+    console.error(chalk.red(`Incomplete backtest: ${data.failed_windows} windows failed; counts understate matches.`));
+    process.exitCode = 1;
+  }
 
   // Calculate daily stats
   const daysAnalyzed = data.matches_by_day?.length || days;

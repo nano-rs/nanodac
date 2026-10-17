@@ -26,10 +26,10 @@ ai_triage_hints:
     - "Large data transfer to the domain"
   context: "Low prevalence domains are rarely visited across the organization. While some may be legitimate niche sites, attackers often use unique domains for C2 or exfiltration to avoid detection."
 ---
-source_type=squid_proxy
+metadata.log_source=squid_proxy
 | prevalence enrich=true window=24h
 | where host_count < 3
-| risk score=50 entity=src_ip factor="Low prevalence domain"
+| risk score=50 entity=src_endpoint.ip factor="Low prevalence domain"
 | where domain_first_seen > now() - INTERVAL 7 DAY
 | risk score=75 factor="Recently first seen domain"
-| table timestamp, src_ip, user, dest_domain, host_count, domain_first_seen, risk_score, risk_factors
+| table time, src_endpoint.ip, user.name, http_request.url.hostname, host_count, domain_first_seen, risk_score, risk_factors

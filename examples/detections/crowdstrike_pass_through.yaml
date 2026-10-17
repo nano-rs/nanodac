@@ -23,6 +23,6 @@ ai_triage_hints:
     - "Multiple detections on same host in short timeframe"
   context: "These are CrowdStrike Falcon detections passed through as individual alerts. Each alert maps 1:1 to a CrowdStrike detection. Check the CrowdStrike console for full context and response actions."
 ---
-source_type=crowdstrike
-| where event_type="detection"
-| risk score=auto entity=src_host factor="CrowdStrike detection"
+metadata.log_source=crowdstrike
+| where class_uid=2004
+| risk score=auto entity=src_endpoint.hostname factor="CrowdStrike detection"

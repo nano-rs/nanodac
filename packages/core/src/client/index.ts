@@ -17,6 +17,7 @@ import type {
   DetectionMatchesResponse,
   BulkUpdateRulesResponse,
   ImportRulesResponse,
+  TriggerDetectionResponse,
 } from '../schema/types.js';
 import { parseLookbackToMinutes } from '../validator/index.js';
 
@@ -213,12 +214,14 @@ export class NanosiemClient {
    */
   async testQuery(
     query: string,
-    days?: number
+    days?: number,
+    options?: { timeRange?: { start: string; end: string }; scheduleCron?: string; lookbackMinutes?: number }
   ): Promise<ApiResponse<HistoricalAnalysisResult>> {
     return this.request<HistoricalAnalysisResult>(
       'POST',
       '/api/rules/test',
-      { query, days: days ?? 7 }
+      { query, days: days ?? 7, time_range: options?.timeRange,
+        schedule_cron: options?.scheduleCron, lookback_minutes: options?.lookbackMinutes, dataset: 'logs' }
     );
   }
 
@@ -230,7 +233,7 @@ export class NanosiemClient {
   async search(
     query: string,
     timeRange: { start: string; end: string },
-    options?: { limit?: number; includeSQL?: boolean }
+    options?: { limit?: number; offset?: number; includeSQL?: boolean }
   ): Promise<ApiResponse<SearchResult>> {
     return this.request<SearchResult>(
       'POST',
@@ -239,10 +242,35 @@ export class NanosiemClient {
         query,
         time_range: timeRange,
         limit: options?.limit,
+        offset: options?.offset,
         include_sql: options?.includeSQL,
+        skip_histogram: true,
+        skip_field_stats: true,
+        dataset: 'logs',
       },
       true // Use search URL
     );
+  }
+
+  /** Read the tenant's canonical field catalog, bypassing shared proxy caches. */
+  async getSchema(): Promise<ApiResponse<import('../schema/types.js').SchemaFieldsResponse>> {
+    const result = await this.request<import('../schema/types.js').SchemaFieldsResponse>(
+      'GET', `/api/schema/fields?_=${Date.now()}`);
+    if (result.success && (result.data?.schema !== 'ocsf' || result.data.schema_version !== '1.9.0' || !result.data.strict_canonical_fields)) {
+      return { success: false, error: { code: 'UNSUPPORTED_SCHEMA', message: 'A strict canonical OCSF 1.9.0 tenant is required' } };
+    }
+    return result;
+  }
+
+  async generateHints(rule: DetectionRule): Promise<ApiResponse<{ job_id: string; status: string }>> {
+    return this.request('POST', '/api/melod/detection/hints', {
+      query: rule.query, description: rule.description, severity: rule.severity,
+      mitre_tactics: rule.mitre_tactics, mitre_techniques: rule.mitre_techniques, narrative: rule.narrative,
+    });
+  }
+
+  async getHintJob(jobId: string): Promise<ApiResponse<{ job_id: string; status: string; result?: unknown; error?: string }>> {
+    return this.request('GET', `/api/melod/jobs/${encodeURIComponent(jobId)}?_=${Date.now()}`);
   }
 
   // ==================== Health Check ====================
@@ -277,8 +305,8 @@ export class NanosiemClient {
    */
   async triggerDetection(
     id: string
-  ): Promise<ApiResponse<{ triggered: boolean; rule_id: string }>> {
-    return this.request<{ triggered: boolean; rule_id: string }>(
+  ): Promise<ApiResponse<TriggerDetectionResponse>> {
+    return this.request<TriggerDetectionResponse>(
       'POST',
       `/api/rules/${id}/trigger`
     );
@@ -412,6 +440,7 @@ export function detectionToApiPayload(
 
   return {
     name: metadata.title,
+    source_slug: metadata.source_slug,
     description: metadata.description,
     query,
     severity: metadata.severity,

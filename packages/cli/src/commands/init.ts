@@ -37,9 +37,9 @@ ai_triage_hints:
     - "Login from unusual location"
   context: "This is an example detection. Customize the hints based on your environment."
 ---
-source_type=auth_logs
-  | where action="login"
-  | stats count() by user_name, src_ip
+metadata.log_source=auth_logs
+  | where activity_id=1
+  | stats count() by user.name, src_endpoint.ip
   | where count > 10
 `;
 

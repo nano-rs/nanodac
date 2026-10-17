@@ -26,13 +26,13 @@ ai_triage_hints:
     - "Source IP has no prior legitimate activity in environment"
   context: "SSH brute force attacks are common from internet-facing systems. Check if the source IP is external and if any accounts were compromised. Rate of failed attempts and geographic origin are good indicators."
 ---
-source_type=auth_logs
-| where service="ssh" AND action="failed"
-| stats count() as failed_attempts by src_ip, dst_ip
+metadata.log_source=auth_logs
+| where auth_protocol="SSH" AND status_id=2
+| stats count() as failed_attempts by src_endpoint.ip, dst_endpoint.ip
 | where failed_attempts > 10
-| risk score=50 entity=src_ip factor="SSH brute force"
+| risk score=50 entity=src_endpoint.ip factor="SSH brute force"
 | where failed_attempts > 50
 | risk score=80 factor="High volume brute force"
 | where failed_attempts > 100
 | risk score=95 factor="Severe brute force attack"
-| table src_ip, dst_ip, failed_attempts, risk_score, risk_factors
+| table src_endpoint.ip, dst_endpoint.ip, failed_attempts, risk_score, risk_factors

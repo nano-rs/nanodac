@@ -13,19 +13,38 @@ import type { GroupedTestBucket } from '../schema/types.js';
  * Matches the in-product rule tester's ENTITY_FIELDS list.
  */
 export const ENTITY_FIELDS_PRIORITY = [
-  'src_ip',
-  'dest_ip',
-  'user',
-  'src_user',
-  'dest_user',
-  'src_host',
-  'dest_host',
-  'host',
-  'hostname',
-  'process_name',
-  'file_hash',
-  'process_hash',
+  'src_endpoint.ip', 'dst_endpoint.ip', 'user.name', 'actor.user.name',
+  'user.uid', 'actor.user.uid', 'src_endpoint.hostname', 'dst_endpoint.hostname',
+  'device.hostname', 'file.hashes.value', 'process.file.hashes.value',
+  'actor.process.file.hashes.value', 'http_request.url.hostname',
 ] as const;
+
+/** Read canonical paths from flat query rows or nested OCSF objects. */
+export function getFieldValue(event: Record<string, unknown>, path: string): unknown {
+  if (Object.hasOwn(event, path)) return event[path];
+  const descend = (value: unknown, parts: string[]): unknown => {
+    if (Array.isArray(value)) return value.flatMap(item => {
+      const leaf = descend(item, parts);
+      return leaf === undefined ? [] : [leaf];
+    });
+    if (!parts.length) return value;
+    if (!value || typeof value !== 'object') return undefined;
+    return descend((value as Record<string, unknown>)[parts[0]], parts.slice(1));
+  };
+  return descend(event, path.split('.'));
+}
+
+/** Flatten nested OCSF leaves for CLI field selection and rendering. */
+export function flattenEvent(event: Record<string, unknown>): Record<string, unknown> {
+  const flat: Record<string, unknown> = {};
+  const visit = (value: unknown, path: string) => {
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      for (const [key, child] of Object.entries(value)) visit(child, path ? `${path}.${key}` : key);
+    } else flat[path] = value;
+  };
+  visit(event, '');
+  return flat;
+}
 
 /**
  * Get the dominant entity from a set of events.
@@ -39,10 +58,12 @@ export function getDominantEntity(
     const counts = new Map<string, number>();
 
     for (const event of events) {
-      const val = event[field];
-      if (val !== undefined && val !== null && val !== '') {
-        const key = String(val);
-        counts.set(key, (counts.get(key) || 0) + 1);
+      const val = getFieldValue(event, field);
+      for (const leaf of Array.isArray(val) ? val : [val]) {
+        if (leaf !== undefined && leaf !== null && leaf !== '') {
+          const key = String(leaf);
+          counts.set(key, (counts.get(key) || 0) + 1);
+        }
       }
     }
 
@@ -85,10 +106,10 @@ export function bucketEventsByLookback(
   const bucketMap = new Map<number, Record<string, unknown>[]>();
 
   for (const event of events) {
-    const ts = event.timestamp || event.ingest_time || event._nano_detected_at;
+    const ts = getFieldValue(event, 'time');
     if (!ts) continue;
 
-    const epochMs = new Date(String(ts)).getTime();
+    const epochMs = new Date(typeof ts === 'number' ? ts : String(ts)).getTime();
     if (isNaN(epochMs)) continue;
 
     const windowStart = Math.floor(epochMs / windowMs) * windowMs;

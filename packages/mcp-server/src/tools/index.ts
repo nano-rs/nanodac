@@ -47,7 +47,7 @@ export const TOOLS = [
       properties: {
         id: {
           type: 'string',
-          description: 'Detection ID (UUID)',
+          description: 'Detection ID (API TypeID)',
         },
         name: {
           type: 'string',
@@ -116,6 +116,7 @@ export const TOOLS = [
           type: 'number',
           description: 'Days of historical data (default: 7)',
         },
+        schedule_cron: { type: 'string', description: 'Cron schedule used for stepped backtesting (default: every 5 minutes)' },
         alert_mode: {
           type: 'string',
           enum: ['grouped', 'per_event'],
@@ -137,7 +138,7 @@ export const TOOLS = [
       properties: {
         query: {
           type: 'string',
-          description: 'Search query (SPL-like piped syntax)',
+          description: 'Search query (nPL piped syntax)',
         },
         start_time: {
           type: 'string',
@@ -147,6 +148,7 @@ export const TOOLS = [
           type: 'string',
           description: 'End time (ISO 8601 or "now")',
         },
+        offset: { type: 'integer', minimum: 0, description: 'Continue with next_offset from the previous result' },
         limit: {
           type: 'number',
           description: 'Maximum results to return (default: 100)',
@@ -157,7 +159,7 @@ export const TOOLS = [
   },
   {
     name: 'generate_hints',
-    description: 'Generate AI triage hints for a detection based on recent alerts',
+    description: 'Start AI triage hint generation from a saved detection query and metadata; returns a job ID for get_hint_job. Requires melod:detection.',
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -168,6 +170,11 @@ export const TOOLS = [
       },
       required: ['detection_id'],
     },
+  },
+  {
+    name: 'get_hint_job',
+    description: 'Read the status and result of async triage hint generation.',
+    inputSchema: { type: 'object' as const, properties: { job_id: { type: 'string' } }, required: ['job_id'] },
   },
   {
     name: 'get_schema',
@@ -416,20 +423,6 @@ export const TOOLS = [
     },
   },
   {
-    name: 'convert_sigma',
-    description: 'Convert a Sigma rule to nPL query using AI. Useful for testing conversions before importing.',
-    inputSchema: {
-      type: 'object' as const,
-      properties: {
-        sigma_yaml: {
-          type: 'string',
-          description: 'Sigma rule YAML content',
-        },
-      },
-      required: ['sigma_yaml'],
-    },
-  },
-  {
     name: 'get_coverage',
     description: 'Get detection coverage analysis. Shows which rules can run based on available log sources.',
     inputSchema: {
@@ -437,7 +430,7 @@ export const TOOLS = [
       properties: {
         repository: {
           type: 'string',
-          description: 'Filter by repository name (optional)',
+          description: 'Filter by repository name, slug, or ID (optional)',
         },
       },
     },
@@ -533,7 +526,7 @@ function checkAlertOutputQuality(query: string): string[] {
   // Check if query uses stats
   if (lowerQuery.includes('| stats ') || lowerQuery.includes('|stats ')) {
     // Look for good patterns - contextual aggregations
-    const hasTimeContext = /min\s*\(\s*timestamp\s*\)|max\s*\(\s*timestamp\s*\)|first_seen|last_seen/i.test(query);
+    const hasTimeContext = /min\s*\(\s*time\s*\)|max\s*\(\s*time\s*\)|first_seen|last_seen/i.test(query);
     const hasValuesAgg = /values\s*\(/i.test(query);
     const hasListAgg = /list\s*\(/i.test(query);
 
@@ -552,12 +545,12 @@ function checkAlertOutputQuality(query: string): string[] {
       if (isSimpleCount && !hasValuesAgg && !hasListAgg) {
         warnings.push(
           'Alert output may lack context: query uses simple count() without contextual fields. ' +
-          'Consider adding: values(user), values(dest_host), min(timestamp), max(timestamp) ' +
+          'Consider adding: values(user.name), values(dst_endpoint.hostname), min(time), max(time) ' +
           'so analysts can investigate without running additional queries.'
         );
       } else if (!hasTimeContext && !hasValuesAgg && !hasListAgg) {
         warnings.push(
-          'Consider adding time context to alerts: min(timestamp) as first_seen, max(timestamp) as last_seen ' +
+          'Consider adding time context to alerts: min(time) as first_seen, max(time) as last_seen ' +
           'helps analysts understand the attack timeline.'
         );
       }
@@ -801,8 +794,11 @@ export async function handleToolCall(
         const validation = validateDetection(parseResult.detection!);
         const outputWarnings = checkAlertOutputQuality(parseResult.detection!.query);
 
+        const server = validation.valid ? await client.validateQuery(parseResult.detection!.query, parseResult.detection!.metadata.detection_mode) : undefined;
         const result = {
           ...validation,
+          valid: validation.valid && server?.success === true && server.data?.valid === true,
+          serverValidation: server?.success ? server.data : server?.error,
           alertOutputWarnings: outputWarnings.length > 0 ? outputWarnings : undefined,
         };
 
@@ -814,7 +810,8 @@ export async function handleToolCall(
       case 'test_detection': {
         const result = await client.testQuery(
           args.query as string,
-          (args.days as number) ?? 7
+          (args.days as number) ?? 7,
+          { lookbackMinutes: args.lookback ? parseLookbackToMinutes(args.lookback as string) : undefined, scheduleCron: args.schedule_cron as string | undefined }
         );
 
         if (!result.success) {
@@ -825,6 +822,7 @@ export async function handleToolCall(
         }
 
         const testData = result.data!;
+        if (testData.failed_windows) return { content: [{ type: 'text', text: JSON.stringify(testData) }], isError: true };
         const alertMode = (args.alert_mode as string) ?? 'grouped';
         const lookbackStr = args.lookback as string | undefined;
 
@@ -868,7 +866,7 @@ export async function handleToolCall(
         const result = await client.search(
           args.query as string,
           { start: startTime, end: endTime },
-          { limit: (args.limit as number) ?? 100 }
+          { limit: (args.limit as number) ?? 100, offset: args.offset as number | undefined }
         );
 
         if (!result.success) {
@@ -884,19 +882,20 @@ export async function handleToolCall(
       }
 
       case 'generate_hints': {
-        // This would call the meloD API endpoint for hint generation
-        // For now, return a placeholder
-        return {
-          content: [
-            {
-              type: 'text',
-              text: `Hint generation for detection ${args.detection_id} requires meloD API integration. Please use the NanoSIEM UI for now.`,
-            },
-          ],
-        };
+        const rule = await client.getDetection(args.detection_id as string);
+        if (!rule.success) return { content: [{ type: 'text', text: `Error: ${rule.error?.message}` }], isError: true };
+        const result = await client.generateHints(rule.data!);
+        return { content: [{ type: 'text', text: JSON.stringify(result.success ? result.data : result.error) }], isError: !result.success };
+      }
+
+      case 'get_hint_job': {
+        const result = await client.getHintJob(args.job_id as string);
+        return { content: [{ type: 'text', text: JSON.stringify(result.success ? result.data : result.error) }], isError: !result.success };
       }
 
       case 'get_schema': {
+        const catalog = await client.getSchema();
+        if (!catalog.success) return { content: [{ type: 'text', text: `Error: ${catalog.error?.message}` }], isError: true };
         const schema = `# NanoSIEM Detection File Format
 
 A detection file uses YAML frontmatter followed by a query.
@@ -908,6 +907,7 @@ A detection file uses YAML frontmatter followed by a query.
 - query: NanoSIEM piped query syntax
 
 ## Optional Fields
+- source_slug: Ingestion source binding for live/alerting rules spanning multiple sources
 - author: Detection author name
 - mode: staging | live | alerting (default: staging)
 - detection_mode: scheduled | real-time (default: scheduled)
@@ -924,21 +924,21 @@ A detection file uses YAML frontmatter followed by a query.
 - auto_tuning: Object with enabled, min_confidence, critical
 
 ## Query Syntax
-source_type=<log_source>
+metadata.log_source=<log_source>
   | where <condition>
   | stats count() by <field>
   | where count > <threshold>
 
 ## Available Commands
-- where: Filter events (e.g., where status_code >= 400)
-- stats: Aggregate (e.g., stats count() by src_ip)
+- where: Filter events (e.g., where status_id=2)
+- stats: Aggregate (e.g., stats count() by src_endpoint.ip)
 - timechart: Time-based aggregation
 - table: Select specific fields
 - sort: Order results
 - head/tail: Limit results
 - prevalence: Enrich with prevalence data
 - lookup: Join with lookup tables
-- risk: Add risk scoring (e.g., | risk score=50 entity=src_ip factor="description")
+- risk: Add risk scoring (e.g., | risk score=50 entity=src_endpoint.ip factor="description")
 
 ## Example Detection
 \`\`\`yaml
@@ -967,18 +967,18 @@ ai_triage_hints:
     - "Activity occurs outside business hours"
   context: "Failed logins can be normal but excessive attempts from one source often indicate brute force."
 ---
-source_type=auth_logs
-| where action="login_failed"
-| stats count() as failed_attempts by src_ip, user
+class_uid=3002
+| where status_id=2
+| stats count() as failed_attempts by src_endpoint.ip, user.name
 | where failed_attempts > 10
-| risk score=50 entity=src_ip factor="Failed login attempts"
+| risk score=50 entity=src_endpoint.ip factor="Failed login attempts"
 | where failed_attempts > 50
 | risk score=80 factor="High volume brute force"
-| table src_ip, user, failed_attempts, risk_score, risk_factors
+| table src_endpoint.ip, user.name, failed_attempts, risk_score, risk_factors
 \`\`\``;
 
         return {
-          content: [{ type: 'text', text: schema }],
+          content: [{ type: 'text', text: schema }, { type: 'text', text: JSON.stringify(catalog.data) }],
         };
       }
 
@@ -1576,39 +1576,19 @@ source_type=auth_logs
         };
       }
 
-      case 'convert_sigma': {
-        const apiUrl = process.env.NANOSIEM_API_URL;
-        const apiKey = process.env.NANOSIEM_API_KEY;
-
-        const response = await fetch(`${apiUrl}/api/sigma/convert`, {
-          method: 'POST',
-          headers: {
-            'X-API-Key': apiKey!,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ sigma_yaml: args.sigma_yaml }),
-        });
-
-        if (!response.ok) {
-          const error = await response.text();
-          return {
-            content: [{ type: 'text', text: `Conversion failed: ${error}` }],
-            isError: true,
-          };
-        }
-
-        const result = await response.json();
-        return {
-          content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
-        };
-      }
-
       case 'get_coverage': {
         const apiUrl = process.env.NANOSIEM_API_URL;
         const apiKey = process.env.NANOSIEM_API_KEY;
 
         const params = new URLSearchParams();
-        if (args.repository) params.set('repository_id', args.repository as string);
+        if (args.repository) {
+          const list = await fetch(`${apiUrl}/api/rule-repositories`, { headers: { 'X-API-Key': apiKey! } });
+          if (!list.ok) throw new Error(`Repository lookup failed (HTTP ${list.status})`);
+          const data = await list.json() as { repositories: Array<{ id: string; name: string; slug: string }> };
+          const repo = data.repositories.find(r => [r.id, r.name, r.slug].includes(args.repository as string));
+          if (!repo) throw new Error('Repository not found');
+          params.set('repository_id', repo.id);
+        }
 
         const query = params.toString();
         const response = await fetch(
@@ -1684,7 +1664,7 @@ source_type=auth_logs
           content: [
             {
               type: 'text',
-              text: `Triggered rule ${args.id} successfully`,
+              text: `Queued rule ${args.id} for tenant execution`,
             },
           ],
         };

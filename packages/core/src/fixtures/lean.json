@@ -1,0 +1,83 @@
+{
+  "schema": {
+    "schema": "ocsf",
+    "schema_version": "1.9.0",
+    "strict_canonical_fields": true,
+    "fields": [
+      {
+        "name": "time",
+        "type": "timestamp",
+        "category": "network",
+        "prewhere": false,
+        "search": false
+      },
+      {
+        "name": "metadata.log_source",
+        "type": "string",
+        "category": "network",
+        "prewhere": false,
+        "search": false
+      },
+      {
+        "name": "src_endpoint.ip",
+        "type": "ip_address",
+        "category": "network",
+        "prewhere": false,
+        "search": false
+      },
+      {
+        "name": "dst_endpoint.ip",
+        "type": "ip_address",
+        "category": "network",
+        "prewhere": false,
+        "search": false
+      },
+      {
+        "name": "user.name",
+        "type": "string",
+        "category": "network",
+        "prewhere": false,
+        "search": false
+      },
+      {
+        "name": "actor.user.name",
+        "type": "string",
+        "category": "network",
+        "prewhere": false,
+        "search": false
+      },
+      {
+        "name": "process.cmd_line",
+        "type": "string",
+        "category": "network",
+        "prewhere": false,
+        "search": false
+      },
+      {
+        "name": "file.hashes.value",
+        "type": "string",
+        "category": "network",
+        "prewhere": false,
+        "search": false
+      }
+    ]
+  },
+  "search": {
+    "results": [
+      {
+        "time": 1792231200000,
+        "src_endpoint": {
+          "ip": "192.0.2.1"
+        },
+        "user": {
+          "name": "alice"
+        }
+      }
+    ],
+    "total_count": 1,
+    "total_count_exact": false,
+    "has_more": true,
+    "next_offset": 1,
+    "execution_time_ms": 4
+  }
+}

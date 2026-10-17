@@ -57,7 +57,7 @@ lookback: 15m
 mitre_tactics: TA0006
 mitre_techniques: T1110
 risk_score: auto
-risk_entity: src_ip
+risk_entity: src_endpoint.ip
 tags:
   - authentication
   - brute_force
@@ -71,13 +71,13 @@ ai_triage_hints:
     - "Activity occurs outside business hours"
   context: "SSH brute force can trigger on legitimate password recovery attempts. Check if user recently requested password reset."
 ---
-source_type=ssh_logs
-  | where action="login_failed"
+metadata.log_source=ssh_logs
+  | where status_id=2
   | stats count() as attempts,
-          values(user) as targeted_users,
-          min(timestamp) as first_attempt,
-          max(timestamp) as last_attempt
-    by src_ip
+          values(user.name) as targeted_users,
+          min(time) as first_attempt,
+          max(time) as last_attempt
+    by src_endpoint.ip
   | where attempts > 10
 ```
 
@@ -175,7 +175,7 @@ nanodac test detections/brute_force_ssh.yaml --hours 24
 nanodac test detections/brute_force_ssh.yaml --all
 
 # Show specific fields only
-nanodac test detections/brute_force_ssh.yaml --fields src_ip,user,attempts
+nanodac test detections/brute_force_ssh.yaml --fields src_endpoint.ip,user,attempts
 
 # Compact output format
 nanodac test detections/brute_force_ssh.yaml --compact
@@ -340,7 +340,8 @@ Add to `.kiro/settings/mcp.json`:
 | `demote_detection` | Demote rule (alerting -> live) |
 | `trigger_detection` | Manually trigger a rule to execute now |
 | `search` | Execute ad-hoc search queries |
-| `get_schema` | Get detection file format documentation |
+| `get_schema` | Read the strict OCSF 1.9 tenant catalog and detection file format |
+| `get_hint_job` | Read async triage hint status and result |
 | `create_issue` | Create a GitHub issue for tracking |
 | `list_issues` | List GitHub issues in the repository |
 | `create_branch` | Create a git branch for detection development |
@@ -350,7 +351,6 @@ Add to `.kiro/settings/mcp.json`:
 | `list_repositories` | List external rule repositories (e.g., SigmaHQ) |
 | `browse_repository` | Browse rules in an external repository |
 | `import_rule` | Import a rule from an external repository |
-| `convert_sigma` | Convert a Sigma rule to nPL query |
 | `get_coverage` | Detection coverage analysis |
 
 ### AI Prompts
@@ -401,10 +401,10 @@ severity: high
 mode: staging
 ...
 ---
-source_type=windows_security
+metadata.log_source=windows_security
   | where event_id=4688
-  | where process_name CONTAINS "psexec"
-  | stats count() by src_host, dest_host, user
+  | where process.name CONTAINS "psexec"
+  | stats count() by src_endpoint.hostname, dst_endpoint.hostname, user
 ```
 
 ### 3. Test locally
@@ -541,3 +541,15 @@ nanodac test detections/new_rule.yaml --limit 10
 ## License
 
 MIT
+
+## Lean lake contract
+
+nanodac targets strict canonical OCSF 1.9.0 tenants and nPL over the lean logs dataset.
+Content repositories default to `main`; legacy UDM content on `legacy/clickhouse` is unsupported.
+`get_schema` reads the tenant field catalog. Use canonical paths such as `src_endpoint.ip`,
+`user.name`, `process.cmd_line`, `time`, and `metadata.log_source` in queries.
+Search counts with `total_count_exact: false` are lower bounds; preserve `has_more` and `next_offset`.
+Real-time rules use the tenant's near-real-time scheduler, with no materialized views.
+`generate_hints` starts an asynchronous metadata-based job; use `get_hint_job` for its result.
+Standalone Sigma AI conversion is removed because its endpoint is unavailable on shared lean tenants.
+Import curated nPL rules from the OCSF content repository instead.

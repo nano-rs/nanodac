@@ -1,3 +1,4 @@
+import { INGESTION_TOOLS, handleIngestionTool } from './ingestion.js';
 import { MITRE_TOOLS, handleMitreTool } from './mitre.js';
 import { OBSERVABILITY_TOOLS, handleObservabilityTool } from './observability.js';
 /**
@@ -16,6 +17,7 @@ import {
 
 /** Tool definitions */
 export const TOOLS = [
+  ...INGESTION_TOOLS,
   ...MITRE_TOOLS,
   ...OBSERVABILITY_TOOLS,
   {
@@ -602,6 +604,7 @@ export async function handleToolCall(
   name: string,
   args: Record<string, unknown>
 ): Promise<{ content: Array<{ type: 'text'; text: string }>; isError?: boolean }> {
+  if (INGESTION_TOOLS.some((tool) => tool.name === name)) return handleIngestionTool(name, args);
   if (name === 'get_mitre_coverage') return handleMitreTool(args);
   if (OBSERVABILITY_TOOLS.some((tool) => tool.name === name)) return handleObservabilityTool(name, args);
   const client = getClient();

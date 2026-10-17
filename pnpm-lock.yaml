@@ -106,14 +106,13 @@ importers:
         version: 2.1.9(@types/node@22.19.5)
 
   packages/mcp-server:
-    dependencies:
+    devDependencies:
       '@modelcontextprotocol/sdk':
         specifier: ^1.0.0
         version: 1.25.2(hono@4.11.3)(zod@4.3.5)
       '@nanodac/core':
-        specifier: workspace:*
+        specifier: file:../core
         version: link:../core
-    devDependencies:
       '@types/node':
         specifier: ^22.0.0
         version: 22.19.5

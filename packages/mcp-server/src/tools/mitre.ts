@@ -1,6 +1,8 @@
 /** Read-only ATT&CK coverage, separate from repository deployability coverage. */
 export const MITRE_TOOLS = [{
   name: 'get_mitre_coverage',
+  annotations: { readOnlyHint: true },
+  _meta: { 'io.nano/permission-requirements': { version: 1, alternatives: [{ allOf: ['mitre:view', 'detections:view'] }] }, 'io.nano/access-tier': 'read' },
   description: 'Read ATT&CK coverage and technique gaps from the connected workspace. Parents and sub-techniques are independent; only live and alerting rules count as active coverage.',
   inputSchema: { type: 'object' as const, properties: {
     technique_id: { type: 'string', description: 'Optional ATT&CK ID such as T1059.001' },

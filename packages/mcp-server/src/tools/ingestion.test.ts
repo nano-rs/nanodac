@@ -31,7 +31,7 @@ describe("ingestion tools", () => {
       expect(tool.inputSchema.additionalProperties).toBe(false);
       expect(tool._meta["io.nano/permission-requirements"].version).toBe(1);
       expect(tool.annotations.readOnlyHint).toBe(
-        tool.name !== "sync_parser_repository",
+        !tool.description.startsWith("WRITE:"),
       );
     }
     expect(JSON.stringify(INGESTION_TOOLS)).not.toMatch(/splunk/i);

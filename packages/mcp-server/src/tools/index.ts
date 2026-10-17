@@ -15,6 +15,9 @@ import {
   bucketEventsByLookback,
 } from '@nanodac/core';
 
+/** API-only mode never exposes filesystem, git or repository authoring tools. */
+export const WORKSPACE_TOOLS = [...INGESTION_TOOLS, ...MITRE_TOOLS, ...OBSERVABILITY_TOOLS];
+
 /** Tool definitions */
 export const TOOLS = [
   ...INGESTION_TOOLS,

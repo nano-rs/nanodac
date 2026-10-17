@@ -59,14 +59,16 @@ import {
   ListPromptsRequestSchema,
   GetPromptRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
-import { TOOLS, handleToolCall } from './tools/index.js';
+import { TOOLS, WORKSPACE_TOOLS, handleToolCall } from './tools/index.js';
 import { PROMPTS, handlePrompt } from './prompts/index.js';
+
+const exposedTools = process.argv.includes('--workspace-only') ? WORKSPACE_TOOLS : TOOLS;
 
 // Create server
 const server = new Server(
   {
     name: 'nanodac-mcp',
-    version: '0.1.0',
+    version: '0.2.0',
   },
   {
     capabilities: {
@@ -78,11 +80,12 @@ const server = new Server(
 
 // Register tool handlers
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
-  tools: TOOLS,
+  tools: exposedTools,
 }));
 
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
+  if (!exposedTools.some((tool) => tool.name === name)) return { isError: true, content: [{ type: 'text', text: 'Tool unavailable in this server mode' }] };
   return handleToolCall(name, (args || {}) as Record<string, unknown>);
 });
 

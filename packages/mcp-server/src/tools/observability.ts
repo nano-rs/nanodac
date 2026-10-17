@@ -4,7 +4,7 @@ const emptySchema = {
   properties: {},
   additionalProperties: false,
 };
-export const OBSERVABILITY_TOOLS = [
+const definitions = [
   {
     name: 'get_metric_monitors',
     description:
@@ -48,6 +48,12 @@ export const OBSERVABILITY_TOOLS = [
     },
   },
 ];
+export const OBSERVABILITY_TOOLS = definitions.map((tool) => ({
+  ...tool,
+  annotations: { readOnlyHint: true },
+  _meta: { 'io.nano/access-tier': 'read', 'io.nano/permission-requirements': { version: 1,
+    alternatives: [{ allOf: [tool.name === 'get_synthetics_status' ? 'search:view' : 'search:execute'] }] } },
+}));
 const paths: Record<string, string> = {
   get_metric_monitors: '/api/observability/metric-monitors',
   get_slos: '/api/observability/slos',

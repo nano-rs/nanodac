@@ -286,18 +286,40 @@ export class NanosiemClient {
 
   // ==================== Rule Lifecycle ====================
 
-  /**
-   * Promote a rule (staging -> live -> alerting)
-   */
-  async promoteDetection(id: string): Promise<ApiResponse<DetectionRule>> {
-    return this.request<DetectionRule>('POST', `/api/rules/${id}/promote`);
+  private async guardedLifecycleTransition(
+    id: string,
+    action: 'promote' | 'demote'
+  ): Promise<ApiResponse<DetectionRule>> {
+    const current = await this.getDetection(id);
+    if (!current.success) return current;
+    if (!current.data) {
+      return {
+        success: false,
+        error: {
+          code: 'INVALID_RESPONSE',
+          message: `NanoSIEM returned no rule state before ${action}`,
+        },
+      };
+    }
+    return this.request<DetectionRule>(
+      'POST',
+      `/api/rules/${id}/${action}`,
+      { expected_mode: current.data.mode }
+    );
   }
 
   /**
-   * Demote a rule (alerting -> live)
+   * Promote a rule by one guarded step (staging -> live -> alerting)
+   */
+  async promoteDetection(id: string): Promise<ApiResponse<DetectionRule>> {
+    return this.guardedLifecycleTransition(id, 'promote');
+  }
+
+  /**
+   * Demote a rule by one guarded step (alerting -> live -> staging)
    */
   async demoteDetection(id: string): Promise<ApiResponse<DetectionRule>> {
-    return this.request<DetectionRule>('POST', `/api/rules/${id}/demote`);
+    return this.guardedLifecycleTransition(id, 'demote');
   }
 
   /**

@@ -11,6 +11,10 @@ afterEach(() => vi.unstubAllGlobals());
 
 describe('guarded rule lifecycle', () => {
   it.each([
+    ['pauseDetection', 'pause', 'live', 'paused'],
+    ['pauseDetection', 'pause', 'alerting', 'paused'],
+    ['resumeDetection', 'resume', 'paused', 'live'],
+    ['resumeDetection', 'resume', 'paused', 'alerting'],
     ['promoteDetection', 'promote', 'staging', 'live'],
     ['promoteDetection', 'promote', 'live', 'alerting'],
     ['demoteDetection', 'demote', 'alerting', 'live'],

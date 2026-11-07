@@ -37328,17 +37328,13 @@ var NanosiemClient = class {
       `/api/rules/${id}`
     );
   }
-  /**
-   * Pause a detection rule (set mode to paused)
-   */
+  /** Pause a detection rule from its current guarded mode. */
   async pauseDetection(id) {
-    return this.request("POST", `/api/rules/${id}/pause`);
+    return this.guardedLifecycleTransition(id, "pause");
   }
-  /**
-   * Resume a paused detection rule (set mode back to alerting)
-   */
+  /** Resume a paused rule to its persisted pre-pause mode. */
   async resumeDetection(id) {
-    return this.request("POST", `/api/rules/${id}/resume`);
+    return this.guardedLifecycleTransition(id, "resume");
   }
   /**
    * Test a detection rule against historical data

@@ -181,18 +181,14 @@ export class NanosiemClient {
     );
   }
 
-  /**
-   * Pause a detection rule (set mode to paused)
-   */
+  /** Pause a detection rule from its current guarded mode. */
   async pauseDetection(id: string): Promise<ApiResponse<DetectionRule>> {
-    return this.request<DetectionRule>('POST', `/api/rules/${id}/pause`);
+    return this.guardedLifecycleTransition(id, 'pause');
   }
 
-  /**
-   * Resume a paused detection rule (set mode back to alerting)
-   */
+  /** Resume a paused rule to its persisted pre-pause mode. */
   async resumeDetection(id: string): Promise<ApiResponse<DetectionRule>> {
-    return this.request<DetectionRule>('POST', `/api/rules/${id}/resume`);
+    return this.guardedLifecycleTransition(id, 'resume');
   }
 
   /**
@@ -288,7 +284,7 @@ export class NanosiemClient {
 
   private async guardedLifecycleTransition(
     id: string,
-    action: 'promote' | 'demote'
+    action: 'pause' | 'resume' | 'promote' | 'demote'
   ): Promise<ApiResponse<DetectionRule>> {
     const current = await this.getDetection(id);
     if (!current.success) return current;

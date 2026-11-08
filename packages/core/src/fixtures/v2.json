@@ -1,8 +1,6 @@
 {
   "schema": {
     "schema": "ocsf",
-    "schema_version": "1.9.0",
-    "strict_canonical_fields": true,
     "fields": [
       {
         "name": "time",
@@ -75,9 +73,7 @@
       }
     ],
     "total_count": 1,
-    "total_count_exact": false,
-    "has_more": true,
-    "next_offset": 1,
-    "execution_time_ms": 4
+    "execution_time_ms": 4,
+    "fields": []
   }
 }

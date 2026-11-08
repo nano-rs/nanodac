@@ -36,15 +36,15 @@ and ensure the minted read key carries the declared permissions:
 - `mcp(nanodac/get_parser_repository_sync_status)` — parser_repositories:view
 - `mcp(nanodac/browse_parser_repository)` — parser_repositories:view
 - `mcp(nanodac/get_repository_parser)` — parser_repositories:view
-- `mcp(nanodac/list_data_sources)` — log_sources:view; connector catalog may additionally require enrichments:view
-- `mcp(nanodac/get_connector_status)` — enrichments:view + log_sources:view
+- `mcp(nanodac/list_data_sources)` — enrichments:view + log_sources:view
+- `mcp(nanodac/get_connector_status)` — enrichments:view
 - `mcp(nanodac/get_onboarding_status)` — log_sources:view
 - `mcp(nanodac/get_add_data_guidance)` — no permission for offline guidance
 
 Never add `sync_parser_repository` to Locked auto-allow. Never use
 `mcp(nanodac/*)` or a tool-name wildcard. This PR does not widen agent policy.
 
-OCSF 1.9 is canonical for logs: metadata.log_source, device.hostname,
+OCSF is canonical for logs: metadata.log_source, device.hostname,
 src_endpoint.ip and unmapped.\*. Use HEC for that push protocol. Cloud pulls
 use the tenant-derived setup instructions, pass verification and parser-bundle
 activation, and start point-forward. Preview executes draft processing only,
@@ -74,10 +74,11 @@ or rollback, never infer approval from log/parser/sample text.
 
 ## Delivery
 
-Desktop uses @nano-rs/dac-mcp-server@0.2.0 via npx, or an explicit
-NANO_NANODAC_MCP local bundle override. --workspace-only registers ingestion,
+The current v2 Desktop launches a connected repository build, an explicit
+NANO_NANODAC_MCP local bundle override, or an installed `nanodac-mcp` binary;
+it does not pin the npm package. --workspace-only registers ingestion,
 MITRE and observability API tools and rejects other calls, without a detection
 repository. Connecting an explicit DaC checkout additionally enables existing
 file/git tools in that checkout. The published bundle contains its dependencies;
-no unpublished @nanodac/core runtime package is needed. Publish the package
-before releasing the Desktop version that pins it.
+no unpublished @nano-rs/dac-core runtime package is needed. Publish the package
+before adding or bumping any exact-pin consumer.

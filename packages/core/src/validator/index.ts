@@ -472,19 +472,19 @@ function validateRequires(
   if (!requires.fields || requires.fields.length === 0) {
     warnings.push({
       field: 'requires.fields',
-      message: 'requires.fields is empty. Consider specifying required OCSF 1.9 fields',
+      message: 'requires.fields is empty. Consider specifying required OCSF fields',
       code: 'EMPTY_ARRAY',
     });
   }
 
-  // Validate field names are valid OCSF 1.9 fields (basic check - lowercase with underscores)
+  // Validate field names are valid OCSF paths (basic check - lowercase with underscores)
   const FIELD_REGEX = /^[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)*$/;
   if (requires.fields) {
     for (const field of requires.fields) {
       if (!FIELD_REGEX.test(field)) {
         warnings.push({
           field: 'requires.fields',
-          message: `Potentially invalid OCSF 1.9 field name: "${field}". Expected canonical dotted OCSF paths`,
+          message: `Potentially invalid OCSF field name: "${field}". Expected canonical dotted OCSF paths`,
           code: 'INVALID_FORMAT',
         });
       }

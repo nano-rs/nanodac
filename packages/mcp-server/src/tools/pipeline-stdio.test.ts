@@ -1,7 +1,8 @@
 import { createServer } from "node:http";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { expect, it } from "vitest";
@@ -41,7 +42,10 @@ it("agent stdio call creates a draft against the HTTP fixture without a detectio
   const cwd = await mkdtemp(join(tmpdir(), "mcppipes-"));
   const transport = new StdioClientTransport({
     command: process.execPath,
-    args: [resolve("packages/mcp-server/dist/index.cjs"), "--workspace-only"],
+    args: [
+      fileURLToPath(new URL("../../dist/index.cjs", import.meta.url)),
+      "--workspace-only",
+    ],
     cwd,
     env: {
       PATH: process.env.PATH ?? "",

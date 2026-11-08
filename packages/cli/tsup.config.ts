@@ -9,7 +9,7 @@ export default defineConfig({
   target: 'node18',
   platform: 'node',
   // Keep all dependencies external - they'll be installed via npm
-  external: ['chalk', 'commander', 'fast-glob', 'yaml', '@nanodac/core'],
+  external: ['chalk', 'commander', 'fast-glob', 'yaml', '@nano-rs/dac-core'],
   banner: {
     js: '#!/usr/bin/env node',
   },

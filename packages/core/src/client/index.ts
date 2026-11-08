@@ -248,12 +248,12 @@ export class NanosiemClient {
     );
   }
 
-  /** Read the tenant's canonical field catalog, bypassing shared proxy caches. */
+  /** Read the v2 tenant's active field catalog, bypassing intermediary caches. */
   async getSchema(): Promise<ApiResponse<import('../schema/types.js').SchemaFieldsResponse>> {
     const result = await this.request<import('../schema/types.js').SchemaFieldsResponse>(
       'GET', `/api/schema/fields?_=${Date.now()}`);
-    if (result.success && (result.data?.schema !== 'ocsf' || result.data.schema_version !== '1.9.0' || !result.data.strict_canonical_fields)) {
-      return { success: false, error: { code: 'UNSUPPORTED_SCHEMA', message: 'A strict canonical OCSF 1.9.0 tenant is required' } };
+    if (result.success && result.data?.schema !== 'ocsf') {
+      return { success: false, error: { code: 'UNSUPPORTED_SCHEMA', message: 'An OCSF nano v2 deployment is required' } };
     }
     return result;
   }

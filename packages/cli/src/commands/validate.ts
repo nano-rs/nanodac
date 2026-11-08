@@ -7,7 +7,7 @@
 import { readFile } from 'fs/promises';
 import fg from 'fast-glob';
 import chalk from 'chalk';
-import { parseDetectionFile, validateDetection } from '@nanodac/core';
+import { parseDetectionFile, validateDetection } from '@nano-rs/dac-core';
 import { loadConfig } from '../config.js';
 
 interface ValidateOptions {

@@ -91,9 +91,7 @@ describe("ingestion tools", () => {
             parser_vrl: `# nano-pipe-v2 ${JSON.stringify(plan)}\n# Processing plan compiled by Nano at publication.\nnano_pipe_plan_v2()`,
             extension_enabled: true,
           })
-        : url.endsWith("pipe-inputs")
-          ? json({ push: [], pull: [], connectors: [] })
-          : json({ error: "private-error-value" }, 403),
+        : json({ error: "private-error-value" }, 403),
     );
     vi.stubGlobal("fetch", fetcher);
     const result = payload(
@@ -103,10 +101,10 @@ describe("ingestion tools", () => {
     expect(result.stages[0].kind).toBe("parse");
     expect(result.stages[1].enabled).toBe(false);
     expect(result.runtime.available).toBe(false);
-    expect(result.schema).toBe("OCSF 1.9");
+    expect(result.schema).toBe("OCSF");
     expect(JSON.stringify(result)).not.toContain("must-not-return");
     expect(JSON.stringify(result)).not.toContain("private-error-value");
-    expect(fetcher.mock.calls).toHaveLength(3);
+    expect(fetcher.mock.calls).toHaveLength(2);
   });
   it("treats malformed plan metadata as one imported VRL stage", async () => {
     vi.stubGlobal(
@@ -171,29 +169,28 @@ describe("ingestion tools", () => {
       }),
     );
     expect(result.workspace_capabilities).toBe("not inspected");
-    expect(result.choices.cloud_pull).toContain("GCP Pub/Sub");
+    expect(result.choices.cloud_pull).toContain("supported nano v2 collector");
     expect(result.fields).toContain("metadata.log_source");
     expect(fetcher).not.toHaveBeenCalled();
   });
-  it("preserves unknown onboarding progress and does not turn failures into no-data", async () => {
+  it("preserves v2 source connect state and does not turn failures into no-data", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () =>
-        json({
-          sources: [
-            { id: "planned", progress: { parsingKnown: false, ready: false } },
-          ],
-          settings: { completeGate: true },
-          waves: [],
-        }),
+      vi.fn(async (url: string) =>
+        json(
+          url.includes("health-series")
+            ? []
+            : [{ source_id: "planned", state: "awaiting_data", last_seen: null }],
+        ),
       ),
     );
     const result = payload(
       await handleIngestionTool("get_onboarding_status", {}),
     );
-    expect(result.sources[0].progress).toEqual({
-      parsingKnown: false,
-      ready: false,
+    expect(result.sources[0]).toMatchObject({
+      source_id: "planned",
+      state: "awaiting_data",
+      last_seen: null,
     });
     vi.stubGlobal(
       "fetch",
@@ -262,19 +259,23 @@ describe("ingestion tools", () => {
 });
 
 describe("guidance matching and plan trust", () => {
-  it("matches only observed connector definitions and does not invent a vendor", async () => {
+  it("matches only observed v2 collector definitions and does not invent a vendor", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (url: string) =>
         json(
-          url.endsWith("/collectors")
-            ? [
+          url.includes("/marketplace/catalog?category=collector")
+            ? {
+                entries: [
                 {
                   slug: "example",
                   name: "Example audit",
-                  streams: [{ source_type: "example_audit" }],
+                  source_type: "example_audit",
                 },
-              ]
+                ],
+                total: 1,
+                stats: {},
+              }
             : {},
         ),
       ),

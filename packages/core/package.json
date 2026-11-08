@@ -1,6 +1,6 @@
 {
-  "name": "@nanodac/core",
-  "version": "0.1.0",
+  "name": "@nano-rs/dac-core",
+  "version": "0.2.0",
   "description": "Core library for NanoSIEM detection-as-code",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -31,5 +31,8 @@
     "vitest": "^2.1.0"
   },
   "keywords": ["nanosiem", "detection", "security", "siem"],
-  "license": "MIT"
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  }
 }

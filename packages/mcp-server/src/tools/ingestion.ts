@@ -41,7 +41,7 @@ function tool(
   };
 }
 export const INGESTION_TOOLS = [
-  tool("get_pipeline_releases", "Read published version row IDs and observed rollouts before rollback or retry. Pending/accepted is not live; inspect the latest tenant live rollout for serving state.", { source_id: id, limit }, ["source_id"], ["log_sources:view"]),
+  tool("get_pipeline_releases", "Read v2 published version row IDs and deployment history before rollback or retry. A successful publication response is not serving proof; inspect deployment status.", { source_id: id, limit }, ["source_id"], ["log_sources:view"]),
   tool(
     "create_pipeline",
     "WRITE: create a draft pipeline source only; never publishes. Interview for source and transport first. Excluded from Desktop Locked auto-allow.",
@@ -135,7 +135,7 @@ export const INGESTION_TOOLS = [
 
   tool(
     "list_pipelines",
-    "Read ingestion pipelines (log-source lanes): source labels, draft/deployed state and parser metadata. Logs normalize to OCSF 1.9. Listing does not publish or execute processing.",
+    "Read ingestion pipelines (log-source lanes): source labels, draft/deployed state and parser metadata. Logs normalize to OCSF. Listing does not publish or execute processing.",
     { search: { type: "string", maxLength: 256 }, limit },
     [],
     ["log_sources:view"],
@@ -149,14 +149,14 @@ export const INGESTION_TOOLS = [
   ),
   tool(
     "explain_pipeline",
-    "Read and explain ordered pipeline stages, routable HEC/HTTP/OTLP push, cloud pull and connector inputs, and runtime capabilities. Preview excludes platform OCSF 1.9 normalization and sinks. Does not run tenant code or publish changes.",
+    "Read and explain ordered pipeline stages and v2 runtime capabilities. Preview excludes platform OCSF normalization and sinks. Does not run tenant code or publish changes.",
     { source_id: id },
     ["source_id"],
     ["log_sources:view"],
   ),
   tool(
     "list_log_sources",
-    "Read log sources/parsers and their canonical metadata.log_source lanes. OCSF 1.9 fields include device.hostname and src_endpoint.ip; non-mapped producer fields live under unmapped.",
+    "Read log sources/parsers and their canonical metadata.log_source lanes. OCSF fields include device.hostname and src_endpoint.ip; non-mapped producer fields live under unmapped.",
     { search: { type: "string", maxLength: 256 }, limit },
     [],
     ["log_sources:view"],
@@ -206,28 +206,28 @@ export const INGESTION_TOOLS = [
   ),
   tool(
     "list_data_sources",
-    "Read cloud pull sources and available hosted connector definitions. Pull verification, bundle rollout and active delivery are distinct states; catalog availability does not imply installation or ingestion.",
+    "Read nano v2 collector catalog entries and registered-source connect states. Catalog availability does not imply installation or ingestion.",
     { limit },
     [],
-    ["log_sources:view"],
-  ),
-  tool(
-    "get_connector_status",
-    "Read hosted connector feed status: pipeline source, credential readiness, rollout, last success and collection errors. This never retrieves vendor credentials or ingest tokens.",
-    { connector: { type: "string", minLength: 1, maxLength: 128 } },
-    ["connector"],
     ["enrichments:view", "log_sources:view"],
   ),
   tool(
+    "get_connector_status",
+    "Read one nano v2 collector catalog entry, including installed, sync and error state. This never retrieves vendor credentials or ingest tokens.",
+    { connector: { type: "string", minLength: 1, maxLength: 128 } },
+    ["connector"],
+    ["enrichments:view"],
+  ),
+  tool(
     "get_onboarding_status",
-    "Read planned sources, waves, source links and telemetry-backed onboarding checks: connected, receiving, parsing, rules and health. Unknown parsing or stability is not healthy; completed rows can regress.",
+    "Read v2 per-source connect state and recent health series. Unknown activity or health is not healthy; previously connected sources can regress.",
     { limit },
     [],
     ["log_sources:view"],
   ),
   tool(
     "get_add_data_guidance",
-    "Explain how to choose HEC/HTTP/OTLP push, AWS S3/SQS or SQS, GCP Pub/Sub, Azure Event Hubs pulls, or a hosted vendor connector. Gives native Desktop setup steps and OCSF 1.9 guidance without requesting secrets. Optionally inspect current workspace capabilities and match source_type/vendor against the returned catalog, without inventing connectors.",
+    "Explain how to choose HEC/HTTP/OTLP push or a v2 collector. Gives native Desktop setup steps and OCSF guidance without requesting secrets. Optionally inspect current workspace capabilities and match source_type/vendor against the returned catalog, without inventing collectors.",
     {
       method: {
         type: "string",
@@ -482,15 +482,15 @@ function stages(source: Record<string, unknown>) {
 function guidance(method: string) {
   return {
     method,
-    schema: "OCSF 1.9 for logs",
+    schema: "OCSF for logs",
     choices: {
       hec: "Existing HEC-capable sender: issue a source credential or collector allowlist, then use the tenant HEC endpoint.",
       http: "Simple HTTP/JSON sender: choose HTTP and the tenant nano HTTPS endpoint.",
       otlp: "OpenTelemetry Collector or SDK: use the supported OTLP/HTTP logs, traces or metrics endpoint and matching source credential.",
       cloud_pull:
-        "AWS S3 notifications via SQS, AWS SQS, GCP Pub/Sub or Azure Event Hubs: use Cloud pulls and the tenant-specific cloud setup instructions. nano derives identity; never invent an ExternalId, service account or endpoint.",
+        "Use a supported nano v2 collector from the catalog and follow its native setup instructions. Never invent an ExternalId, service account or endpoint.",
       connector:
-        "Vendor audit API: inspect the hosted connector catalog and required streams/fields. Enter vendor credentials only in the native setup sheet, never in chat.",
+        "Vendor audit API: inspect the v2 collector catalog and its declared configuration. Enter vendor credentials only in the native setup sheet, never in chat.",
     },
     steps: [
       "Read get_add_data_guidance and list_pipelines first. Interview the user for producer format, source identity and transport; never request secrets in chat.",
@@ -743,12 +743,15 @@ export async function handleIngestionTool(
   try {
     switch (name) {
       case "get_pipeline_releases": {
-        const [versions, rollouts, latestLive] = await Promise.all([
+        const [versions, deployments] = await Promise.all([
           request(`/api/log-sources/${source}/versions`),
-          request(`/api/log-sources/${source}/rollouts?limit=${count}`),
-          partial("/api/log-sources/rollouts?state=live&limit=1"),
+          request(`/api/log-sources/${source}/deployments`),
         ]);
-        return success({ versions: rows(versions).slice(0, count), rollouts, latest_tenant_live_rollout: latestLive, content_trust: "untrusted_data" });
+        return success({
+          versions: rows(versions).slice(0, count),
+          deployments: rows(deployments).slice(0, count),
+          content_trust: "untrusted_data",
+        });
       }
       case "create_pipeline":
         return success(
@@ -906,17 +909,15 @@ export async function handleIngestionTool(
         const data = object(
           await request(`/api/log-sources/${source}/draft-status`),
         );
-        const [inputs, runtime] = await Promise.all([
-          partial(`/api/log-sources/${source}/pipe-inputs`),
-          partial(`/api/log-sources/${source}/pipe-capabilities`),
-        ]);
+        const runtime = await partial(
+          `/api/log-sources/${source}/pipe-capabilities`,
+        );
         return success({
           pipeline: pick(data, sourceFields),
           stages: stages(data),
           extension: pick(data, ["extension_enabled", "extension_vrl"]),
-          inputs,
           runtime,
-          schema: "OCSF 1.9",
+          schema: "OCSF",
           scope:
             "Draft processing precedes platform normalization and sinks. This explanation executes nothing; saved draft and serving release may differ.",
         });
@@ -966,45 +967,46 @@ export async function handleIngestionTool(
         });
       }
       case "list_data_sources": {
-        const [pulls, connectors] = await Promise.all([
-          partial("/api/pull-sources"),
-          partial("/api/marketplace/collectors"),
+        const [catalog, statuses] = await Promise.all([
+          partial("/api/marketplace/catalog?category=collector"),
+          partial("/api/log-sources/connect-status"),
         ]);
+        const entries = catalog.available
+          ? rows(object(catalog.data).entries)
+          : [];
         return success({
-          pulls: pulls.available
+          collector_catalog: catalog.available
             ? {
                 available: true,
-                sources: rows(pulls.data).slice(0, count),
-                total: rows(pulls.data).length,
+                collectors: entries.slice(0, count),
+                total: entries.length,
+                note: "Definitions only. Read get_connector_status for installed and sync state.",
               }
-            : pulls,
-          hosted_connector_catalog: connectors.available
-            ? {
-                available: true,
-                connectors: rows(connectors.data).slice(0, count),
-                total: rows(connectors.data).length,
-                note: "Definitions only. Read get_connector_status to observe installed feeds.",
-              }
-            : connectors,
+            : catalog,
+          registered_source_status: statuses.available
+            ? rows(statuses.data).slice(0, count)
+            : statuses,
         });
       }
       case "get_connector_status":
         return success(
           await request(
-            `/api/marketplace/collectors/${encodeURIComponent(String(args.connector))}`,
+            `/api/marketplace/catalog/${encodeURIComponent(String(args.connector))}`,
           ),
         );
       case "get_onboarding_status": {
-        const body = object(await request("/api/source-onboarding"));
-        const sources = rows(body.sources);
+        const [statuses, health] = await Promise.all([
+          request("/api/log-sources/connect-status"),
+          partial("/api/log-sources/health-series?hours=24"),
+        ]);
+        const sources = rows(statuses);
         return success({
-          waves: body.waves,
-          settings: body.settings,
           sources: sources.slice(0, count),
           total_sources: sources.length,
           truncated: sources.length > count,
+          recent_health: health,
           coverage:
-            "Unknown telemetry is not success; completion does not prevent later regression.",
+            "Unknown activity or health is not success; connected sources can later regress.",
         });
       }
       case "get_add_data_guidance": {
@@ -1013,10 +1015,9 @@ export async function handleIngestionTool(
             ...guidance(method),
             workspace_capabilities: "not inspected",
           });
-        const [endpoint, pulls, connectors] = await Promise.all([
+        const [endpoint, catalog] = await Promise.all([
           partial("/api/log-sources/ingest-endpoint"),
-          partial("/api/pull-sources"),
-          partial("/api/marketplace/collectors"),
+          partial("/api/marketplace/catalog?category=collector"),
         ]);
         const needles = [args.vendor, args.source_type]
           .filter(
@@ -1024,17 +1025,17 @@ export async function handleIngestionTool(
               typeof value === "string" && !!value.trim(),
           )
           .map((value) => value.trim().toLowerCase());
-        const matches = connectors.available
-          ? rows(connectors.data).filter((entry) => {
+        const entries = catalog.available
+          ? rows(object(catalog.data).entries)
+          : [];
+        const matches = catalog.available
+          ? entries.filter((entry) => {
               const text = [
                 entry.slug,
                 entry.name,
                 entry.description,
-                entry.origin,
-                ...rows(entry.streams).flatMap((stream) => [
-                  stream.label,
-                  stream.source_type,
-                ]),
+                entry.source_type,
+                ...(Array.isArray(entry.tags) ? entry.tags : []),
               ]
                 .join(" ")
                 .toLowerCase();
@@ -1043,7 +1044,7 @@ export async function handleIngestionTool(
           : [];
         return success({
           ...guidance(method),
-          workspace: { endpoint, pulls, hosted_connector_catalog: connectors },
+          workspace: { endpoint, collector_catalog: catalog },
           matching_connectors: matches,
           selection_note:
             needles.length && !matches.length

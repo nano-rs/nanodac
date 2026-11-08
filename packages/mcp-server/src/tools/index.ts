@@ -13,7 +13,7 @@ import {
   NanosiemClient,
   detectionToApiPayload,
   bucketEventsByLookback,
-} from '@nanodac/core';
+} from '@nano-rs/dac-core';
 
 /** API-only mode never exposes filesystem, git or repository authoring tools. */
 export const WORKSPACE_TOOLS = [...INGESTION_TOOLS, ...MITRE_TOOLS, ...OBSERVABILITY_TOOLS];
@@ -151,7 +151,7 @@ export const TOOLS = [
           type: 'string',
           description: 'End time (ISO 8601 or "now")',
         },
-        offset: { type: 'integer', minimum: 0, description: 'Continue with next_offset from the previous result' },
+        offset: { type: 'integer', minimum: 0, description: 'Result offset for nano v2 pagination; retain the first-page total_count' },
         limit: {
           type: 'number',
           description: 'Maximum results to return (default: 100)',

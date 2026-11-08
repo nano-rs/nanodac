@@ -2,12 +2,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { parseDetectionFile } from '../parser/index.js';
 import { validateDetection } from '../validator/index.js';
 import { NanosiemClient } from './index.js';
-import fixture from '../fixtures/lean.json';
+import fixture from '../fixtures/v2.json';
 import { bucketEventsByLookback, getDominantEntity, getFieldValue } from '../grouping/index.js';
 
 const client = () => new NanosiemClient({ apiUrl: 'https://api.invalid/', searchUrl: 'https://search.invalid/', apiKey: 'fixture-key' });
 afterEach(() => vi.unstubAllGlobals());
-describe('lean OCSF contract', () => {
+describe('nano v2 OCSF contract', () => {
   it('accepts canonical dotted required fields without format warnings', () => {
     const parsed = parseDetectionFile(`---
 title: auth_test
@@ -24,7 +24,7 @@ class_uid=3002 | stats count() by src_endpoint.ip`, 'test.yaml');
     expect(validation.valid).toBe(true);
     expect(validation.warnings.filter(w => w.field === 'requires.fields')).toEqual([]);
   });
-  it('uses the lean search service and preserves bounded counts and pagination', async () => {
+  it('uses the v2 search service and preserves its result contract', async () => {
     const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify(fixture.search)));
     vi.stubGlobal('fetch', fetcher);
     const result = await client().search('class_uid=3002 | table time, src_endpoint.ip', { start: '2026-10-17T00:00:00Z', end: '2026-10-17T01:00:00Z' }, { limit: 1 });
@@ -34,8 +34,8 @@ class_uid=3002 | stats count() by src_endpoint.ip`, 'test.yaml');
     expect(init.headers['X-API-Key']).toBe('fixture-key');
     expect(JSON.parse(init.body)).toMatchObject({ dataset: 'logs', skip_histogram: true, skip_field_stats: true, limit: 1 });
   });
-  it('rejects noncanonical and older schema catalogs', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ ...fixture.schema, strict_canonical_fields: false }))));
+  it('rejects a non-OCSF deployment without inventing a schema version field', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ ...fixture.schema, schema: 'udm' }))));
     expect((await client().getSchema()).error?.code).toBe('UNSUPPORTED_SCHEMA');
   });
   it('sends an exact backtest range and the authored schedule/lookback', async () => {

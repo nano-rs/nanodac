@@ -1,6 +1,6 @@
-# nanodac - Detection-as-Code for NanoSIEM
+# nanodac - Detection-as-Code for nano
 
-nanodac brings GitOps workflows to security detection engineering. Write detection rules as YAML files, validate them in CI/CD, and deploy them to NanoSIEM with peer review and version control.
+nanodac brings GitOps workflows to security detection engineering. Write detection rules as YAML files, validate them in CI/CD, and deploy them to nano with peer review and version control.
 
 ## Why Detection-as-Code?
 
@@ -15,29 +15,29 @@ nanodac brings GitOps workflows to security detection engineering. Write detecti
 
 ```bash
 # Initialize a new detection repository
-npx nanodac init
+npx @nano-rs/dac-cli init
 
 # Validate all detection files
-npx nanodac validate
+npx @nano-rs/dac-cli validate
 
 # Test a detection against historical data
-npx nanodac test detections/brute_force_ssh.yaml
+npx @nano-rs/dac-cli test detections/brute_force_ssh.yaml
 
 # Preview changes before deploying
-npx nanodac sync --dry-run
+npx @nano-rs/dac-cli sync --dry-run
 
-# Deploy to NanoSIEM
-npx nanodac sync
+# Deploy to nano
+npx @nano-rs/dac-cli sync
 ```
 
 ## Installation
 
 ```bash
 # Using npm
-npm install -g @nanodac/cli
+npm install -g @nano-rs/dac-cli
 
 # Or use npx without installing
-npx nanodac <command>
+npx @nano-rs/dac-cli <command>
 ```
 
 ## Detection File Format
@@ -329,7 +329,7 @@ Add to `.kiro/settings/mcp.json`:
 
 | Tool | Description |
 |------|-------------|
-| `list_detections` | List all detections from NanoSIEM |
+| `list_detections` | List all detections from nano |
 | `get_detection` | Get a single detection by ID or name |
 | `create_detection` | Create a new detection from YAML content |
 | `update_detection` | Update an existing detection |
@@ -340,7 +340,8 @@ Add to `.kiro/settings/mcp.json`:
 | `demote_detection` | Demote rule (alerting -> live) |
 | `trigger_detection` | Manually trigger a rule to execute now |
 | `search` | Execute ad-hoc search queries |
-| `get_schema` | Read the strict OCSF 1.9 tenant catalog and detection file format |
+| `get_schema` | Read the nano v2 OCSF field catalog and detection file format |
+| `generate_hints` | Start enterprise triage-hint generation from a saved detection |
 | `get_hint_job` | Read async triage hint status and result |
 | `create_issue` | Create a GitHub issue for tracking |
 | `list_issues` | List GitHub issues in the repository |
@@ -533,23 +534,25 @@ nanodac test detections/new_rule.yaml --limit 10
 
 | Package | Description |
 |---------|-------------|
-| `@nanodac/core` | Schema, parser, validator, API client |
-| `@nanodac/cli` | Command-line interface |
-| `@nanodac/mcp-server` | MCP server for AI assistants |
-| `@nanodac/github-action` | GitHub Action for CI/CD |
+| `@nano-rs/dac-core` | Schema, parser, validator, API client |
+| `@nano-rs/dac-cli` | Command-line interface |
+| `@nano-rs/dac-mcp-server` | MCP server for AI assistants |
+| `@nano-rs/dac-github-action` | GitHub Action for CI/CD |
 
 ## License
 
 MIT
 
-## Lean lake contract
+## nano v2 contract
 
-nanodac targets strict canonical OCSF 1.9.0 tenants and nPL over the lean logs dataset.
+nanodac targets nano v2's OCSF-first ClickHouse store and nPL logs dataset.
 Content repositories default to `main`; legacy UDM content on `legacy/clickhouse` is unsupported.
-`get_schema` reads the tenant field catalog. Use canonical paths such as `src_endpoint.ip`,
+`get_schema` reads the active field catalog. The v2 response reports the `ocsf` discriminator
+and field universe without claiming one tenant-wide schema version. Use canonical paths such as `src_endpoint.ip`,
 `user.name`, `process.cmd_line`, `time`, and `metadata.log_source` in queries.
-Search counts with `total_count_exact: false` are lower bounds; preserve `has_more` and `next_offset`.
+The first search page reports an exact `total_count`; later pages may report a monotonic estimate.
+Advance `offset` by the returned row count and retain the first-page total for display.
 Real-time rules use the tenant's near-real-time scheduler, with no materialized views.
 `generate_hints` starts an asynchronous metadata-based job; use `get_hint_job` for its result.
-Standalone Sigma AI conversion is removed because its endpoint is unavailable on shared lean tenants.
+Standalone Sigma AI conversion is removed because nano v2 does not expose that endpoint.
 Import curated nPL rules from the OCSF content repository instead.

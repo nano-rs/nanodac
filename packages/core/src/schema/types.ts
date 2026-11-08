@@ -50,11 +50,11 @@ export interface AutoTuningConfig {
 }
 
 /**
- * OCSF 1.9 field requirements for a detection rule
+ * OCSF field requirements for a detection rule
  * Used for coverage analysis and validation
  */
 export interface RequiresConfig {
-  /** OCSF 1.9 fields required for this detection to work */
+  /** OCSF fields required for this detection to work */
   fields: string[];
   /** Suggested source types that typically provide these fields */
   source_types?: string[];
@@ -120,7 +120,7 @@ export interface DetectionFrontmatter {
   folder?: string;
   /** Auto-tuning configuration */
   auto_tuning?: AutoTuningConfig;
-  /** OCSF 1.9 field requirements */
+  /** OCSF field requirements */
   requires?: RequiresConfig;
   /**
    * Playbook auto-attach mode for alerts produced by this rule.
@@ -166,7 +166,7 @@ export interface Detection {
  * Normalized version of Detection for API compatibility
  */
 export interface DetectionApiPayload {
-  /** Ingestion source binding accepted by lean authoring. */
+  /** Ingestion source binding accepted by nano v2 authoring. */
   source_slug?: string;
   /** Detection name (from title) */
   name: string;
@@ -212,7 +212,7 @@ export interface DetectionApiPayload {
   auto_tuning_min_confidence?: number;
   /** If true, prevents auto-tuning regardless of other settings */
   auto_tuning_critical?: boolean;
-  /** OCSF 1.9 field requirements (local-only, not sent to API) */
+  /** OCSF field requirements (local-only, not sent to API) */
   requires?: RequiresConfig;
   /** Repository source (for linked/forked rules) */
   source_repository_slug?: string;
@@ -317,11 +317,9 @@ export interface SearchResult {
   total_count: number;
   /** Query execution time in milliseconds */
   execution_time_ms: number;
-  /** False means total_count is a lower bound. */
-  total_count_exact: boolean;
-  has_more: boolean;
-  next_offset: number | null;
-  warnings?: string[];
+  /** Field metadata returned with the v2 result set. */
+  fields: Array<Record<string, unknown>>;
+  warnings?: Array<Record<string, unknown>>;
   /** Generated SQL (if requested) */
   generated_sql?: string;
 }
@@ -426,8 +424,6 @@ export interface GroupedTestBucket {
 /** Canonical tenant field catalog from /api/schema/fields. */
 export interface SchemaFieldsResponse {
   schema: string;
-  schema_version: string;
-  strict_canonical_fields: boolean;
   fields: Array<{ name: string; type: string; category: string; entity_type?: string; prewhere: boolean; search: boolean }>;
 }
 

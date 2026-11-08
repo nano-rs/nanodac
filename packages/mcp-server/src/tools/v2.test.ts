@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { handleToolCall, TOOLS } from './index.js';
-const catalog = { schema: 'ocsf', schema_version: '1.9.0', strict_canonical_fields: true, fields: [{ name: 'src_endpoint.ip', type: 'ip_address' }] };
+const catalog = { schema: 'ocsf', fields: [{ name: 'src_endpoint.ip', type: 'ip_address' }] };
 beforeEach(() => {
   vi.stubEnv('NANOSIEM_API_URL', 'https://api.invalid');
   vi.stubEnv('NANOSIEM_API_KEY', 'fixture-key');

@@ -297,12 +297,12 @@ describe("pipeline authoring", () => {
   });
 });
 
-it('reads version row IDs and rollouts without claiming acceptance is serving', async () => {
+it('reads version row IDs and v2 deployments without claiming publication is serving', async () => {
   const fetcher = vi.fn(async (url: string) => json(url.endsWith('/versions') ? [{ id: 7, version_number: 2 }] : [{ state: 'pending' }]));
   vi.stubGlobal('fetch', fetcher);
   const result = data(await call('get_pipeline_releases', { source_id: source, limit: 10 }));
   expect(result.versions[0].id).toBe(7);
-  expect(result.rollouts[0].state).toBe('pending');
-  expect(fetcher.mock.calls.map(([url]) => url)).toContain(`https://workspace.test/api/log-sources/${source}/rollouts?limit=10`);
+  expect(result.deployments[0].state).toBe('pending');
+  expect(fetcher.mock.calls.map(([url]) => url)).toContain(`https://workspace.test/api/log-sources/${source}/deployments`);
   expect(INGESTION_READ_TOOLS).toContain('get_pipeline_releases');
 });

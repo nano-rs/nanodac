@@ -14,7 +14,7 @@ import {
   bucketEventsByLookback,
   flattenEvent,
   getFieldValue,
-} from '@nanodac/core';
+} from '@nano-rs/dac-core';
 import { requireConfig, getApiKey } from '../config.js';
 
 export interface TestOptions {

@@ -120,8 +120,8 @@ Your API key needs the following NanoSIEM permissions depending on which feature
 | `detections:promote` | Promote, demote, pause, resume, trigger | `promote_detection`, `demote_detection`, `trigger_detection` |
 | `detections:delete` | Delete rules | `sync --delete-orphans` |
 | `detections:export` | Export all rules | `exportRules` client method |
-| `rule_repositories:view` | Browse external rule repos | `list_repositories`, `browse_repository` |
-| `rule_repositories:import` | Import rules from repos | `import_rule` |
+| `rule_repositories:view` | Browse nano's first-party rule repositories | `list_repositories`, `browse_repository` |
+| `rule_repositories:import` | Import rules from those repositories | `import_rule` |
 
 **Minimum for CLI usage:** `detections:view` + `detections:create` + `detections:edit`
 
@@ -349,9 +349,9 @@ Add to `.kiro/settings/mcp.json`:
 | `write_detection_file` | Write detection YAML to disk |
 | `commit_and_push` | Commit and push detection changes |
 | `create_pull_request` | Create PR with issue linking |
-| `list_repositories` | List external rule repositories (e.g., SigmaHQ) |
-| `browse_repository` | Browse rules in an external repository |
-| `import_rule` | Import a rule from an external repository |
+| `list_repositories` | List the rule repositories nano provides (first-party only; third-party repositories are refused) |
+| `browse_repository` | Browse rules in a rule repository |
+| `import_rule` | Import a rule from a rule repository |
 | `get_coverage` | Detection coverage analysis |
 
 ### AI Prompts
@@ -546,7 +546,7 @@ MIT
 ## nano v2 contract
 
 nanodac targets nano v2's OCSF-first ClickHouse store and nPL logs dataset.
-Content repositories default to `main`; legacy UDM content on `legacy/clickhouse` is unsupported.
+Content repositories default to `main`; the legacy UDM content on `legacy/clickhouse` is frozen and unsupported.
 `get_schema` reads the active field catalog. The v2 response reports the `ocsf` discriminator
 and field universe without claiming one tenant-wide schema version. Use canonical paths such as `src_endpoint.ip`,
 `user.name`, `process.cmd_line`, `time`, and `metadata.log_source` in queries.
